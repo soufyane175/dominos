@@ -39,6 +39,240 @@ const Sun = ({ s = 200, c = "" }: { s?: number; c?: string }) => (
   </svg>
 );
 
+// ✅ Lach geluid genereren met Web Audio API (geen externe bestanden nodig)
+function playLaughSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    // Lach-achtig geluid met meerdere tonen
+    const laughNotes = [800, 600, 900, 500, 1000, 400, 800, 600, 700, 500];
+    const noteLength = 0.12;
+    
+    laughNotes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      
+      const startTime = ctx.currentTime + i * noteLength;
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + noteLength - 0.01);
+      
+      osc.start(startTime);
+      osc.stop(startTime + noteLength);
+    });
+
+    // Tweede lach na korte pauze
+    setTimeout(() => {
+      try {
+        const ctx2 = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const laughNotes2 = [900, 700, 1000, 600, 1100, 500, 900, 700, 800, 600, 500, 400];
+        laughNotes2.forEach((freq, i) => {
+          const osc = ctx2.createOscillator();
+          const gain = ctx2.createGain();
+          osc.connect(gain);
+          gain.connect(ctx2.destination);
+          osc.type = "sine";
+          osc.frequency.value = freq;
+          const startTime = ctx2.currentTime + i * 0.1;
+          gain.gain.setValueAtTime(0, startTime);
+          gain.gain.linearRampToValueAtTime(0.12, startTime + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.09);
+          osc.start(startTime);
+          osc.stop(startTime + 0.1);
+        });
+      } catch(e) {}
+    }, laughNotes.length * noteLength * 1000 + 200);
+
+  } catch (e) {
+    console.log("Audio not available");
+  }
+}
+
+// ✅ Win geluid
+function playWinSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const notes = [523, 659, 784, 1047]; // C E G C (major chord going up)
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.2;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.2, t + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      osc.start(t);
+      osc.stop(t + 0.5);
+    });
+  } catch(e) {}
+}
+
+// ✅ Confetti particles
+function Confetti() {
+  const [particles] = useState(() => 
+    Array.from({ length: 50 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      delay: Math.random() * 2,
+      duration: 2 + Math.random() * 3,
+      size: 6 + Math.random() * 8,
+      color: ["#FF0000", "#FFD700", "#00FF00", "#00BFFF", "#FF69B4", "#FFA500", "#9400D3"][Math.floor(Math.random() * 7)],
+      rotation: Math.random() * 360,
+    }))
+  );
+
+  return (
+    <div className="fixed inset-0 z-[100] pointer-events-none overflow-hidden">
+      {particles.map(p => (
+        <div
+          key={p.id}
+          className="absolute animate-confetti-fall"
+          style={{
+            left: `${p.x}%`,
+            top: "-20px",
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            backgroundColor: p.color,
+            borderRadius: Math.random() > 0.5 ? "50%" : "2px",
+            transform: `rotate(${p.rotation}deg)`,
+            animationDelay: `${p.delay}s`,
+            animationDuration: `${p.duration}s`,
+          }}
+        />
+      ))}
+      <style jsx>{`
+        @keyframes confetti-fall {
+          0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+          100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        .animate-confetti-fall {
+          animation: confetti-fall linear forwards;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ✅ Grote lach emoji overlay
+function LaughOverlay({ onClose }: { onClose: () => void }) {
+  const [show, setShow] = useState(true);
+  const laughEmojis = ["🤣", "😂", "😆", "🤣", "😂"];
+  const [currentEmoji, setCurrentEmoji] = useState(0);
+
+  useEffect(() => {
+    playLaughSound();
+    
+    const emojiInterval = setInterval(() => {
+      setCurrentEmoji(prev => (prev + 1) % laughEmojis.length);
+    }, 400);
+
+    const timer = setTimeout(() => {
+      setShow(false);
+      setTimeout(onClose, 500);
+    }, 4000);
+
+    return () => { 
+      clearInterval(emojiInterval);
+      clearTimeout(timer); 
+    };
+  }, [onClose]);
+
+  return (
+    <div className={`fixed inset-0 z-[99] flex items-center justify-center transition-opacity duration-500 ${show ? "opacity-100" : "opacity-0"}`}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      
+      <div className="relative z-10 flex flex-col items-center">
+        {/* Grote lach emoji met bounce animatie */}
+        <div className="animate-bounce-laugh text-[120px] sm:text-[180px] leading-none select-none">
+          {laughEmojis[currentEmoji]}
+        </div>
+        
+        {/* Kleinere emoji's rondom */}
+        <div className="absolute -top-8 -left-12 text-4xl animate-spin-slow opacity-80">🤣</div>
+        <div className="absolute -top-4 -right-16 text-5xl animate-bounce opacity-80">😂</div>
+        <div className="absolute -bottom-4 -left-16 text-5xl animate-ping-slow opacity-60">😆</div>
+        <div className="absolute -bottom-8 -right-12 text-4xl animate-spin-slow opacity-80">🤣</div>
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full text-3xl animate-bounce opacity-70">💀</div>
+        
+        {/* Tekst */}
+        <div className="mt-4 text-white font-black text-2xl sm:text-4xl text-center animate-pulse drop-shadow-[0_0_20px_rgba(255,0,0,0.5)]">
+          VERLOREN! 😂
+        </div>
+        <div className="mt-2 text-white/60 text-sm animate-pulse">
+          Hahahaha!
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes bounce-laugh {
+          0%, 100% { transform: scale(1) rotate(0deg); }
+          15% { transform: scale(1.3) rotate(-10deg); }
+          30% { transform: scale(0.9) rotate(5deg); }
+          45% { transform: scale(1.2) rotate(-5deg); }
+          60% { transform: scale(0.95) rotate(3deg); }
+          75% { transform: scale(1.1) rotate(-3deg); }
+        }
+        .animate-bounce-laugh {
+          animation: bounce-laugh 0.8s ease-in-out infinite;
+        }
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+          animation: spin-slow 3s linear infinite;
+        }
+        @keyframes ping-slow {
+          0% { transform: scale(1); opacity: 0.6; }
+          50% { transform: scale(1.3); opacity: 0.3; }
+          100% { transform: scale(1); opacity: 0.6; }
+        }
+        .animate-ping-slow {
+          animation: ping-slow 1.5s ease-in-out infinite;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ✅ Win overlay
+function WinOverlay({ onClose }: { onClose: () => void }) {
+  const [show, setShow] = useState(true);
+
+  useEffect(() => {
+    playWinSound();
+    const timer = setTimeout(() => {
+      setShow(false);
+      setTimeout(onClose, 500);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className={`fixed inset-0 z-[99] flex items-center justify-center transition-opacity duration-500 ${show ? "opacity-100" : "opacity-0"}`}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <Confetti />
+      <div className="relative z-10 flex flex-col items-center">
+        <div className="text-[100px] sm:text-[150px] leading-none animate-bounce select-none">🏆</div>
+        <div className="mt-2 text-3xl animate-bounce delay-100">👑</div>
+        <div className="mt-4 text-yellow-400 font-black text-3xl sm:text-5xl text-center animate-pulse drop-shadow-[0_0_30px_rgba(255,215,0,0.8)]">
+          JIJ WINT!
+        </div>
+        <div className="mt-2 text-yellow-300/60 text-sm">☀️ Gefeliciteerd! ☀️</div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [view, setView] = useState<"menu" | "game">("menu");
   const [lang, setLang] = useState<"KU" | "NL">("NL");
@@ -51,6 +285,9 @@ export default function Home() {
   const [pile, setPile] = useState<Tile[]>([]);
   const [myTurn, setMyTurn] = useState(true);
   const [gameOver, setGameOver] = useState<string | null>(null);
+  const [showLaugh, setShowLaugh] = useState(false);
+  const [showWin, setShowWin] = useState(false);
+  const [iWon, setIWon] = useState(false);
 
   const [room, setRoom] = useState("");
   const [input, setInput] = useState("");
@@ -75,12 +312,22 @@ export default function Home() {
 
   useEffect(() => { btm.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
+  // ✅ Trigger win/lose animatie
+  const triggerGameEnd = useCallback((won: boolean) => {
+    setIWon(won);
+    if (won) {
+      setShowWin(true);
+    } else {
+      setShowLaugh(true);
+    }
+  }, []);
+
   const sys = useCallback((t: string) => {
     setMsgs(p => [...p, { sender: "⚙️", text: t, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }]);
     setTab(prev => { if (prev !== "chat") setUnread(c => c + 1); return prev; });
   }, []);
 
-  // ✅ Socket - alle events
+  // Socket
   useEffect(() => {
     const s = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
@@ -91,139 +338,82 @@ export default function Home() {
     });
     sock.current = s;
 
-    s.on("connect", () => {
-      setStatus("on");
-      console.log("✅ Connected:", s.id);
-    });
+    s.on("connect", () => { setStatus("on"); });
     s.on("connect_error", () => setStatus("err"));
     s.on("disconnect", () => setStatus("off"));
 
-    // ✅ Room created - alleen voor de MAKER
     s.on("roomCreated", ({ code }: { code: string }) => {
-      console.log("🏠 Room created:", code);
-      setRoom(code);
-      setWaiting(true);
-      setMode("online");
-      setView("game");  // ← ga naar game scherm
-      setGameOver(null);
-      setMsgs([]);
-      setTab("board");
+      setRoom(code); setWaiting(true); setMode("online"); setView("game");
+      setGameOver(null); setMsgs([]); setTab("board"); setShowLaugh(false); setShowWin(false);
     });
 
-    // ✅ Game started - voor BEIDE spelers
     s.on("gameStarted", ({ p1, p2 }: { p1: string; p2: string }) => {
-      console.log("🎮 Game started:", p1, "vs", p2);
-      setWaiting(false);
-      setMode("online");
-      setView("game");  // ← BELANGRIJK: ook de joiner gaat naar game scherm
-      setGameOver(null);
+      setWaiting(false); setMode("online"); setView("game");
+      setGameOver(null); setShowLaugh(false); setShowWin(false);
       sys(`🎮 ${p1} vs ${p2} - LET'S GO!`);
     });
 
-    // ✅ Game state - update bord, hand, etc
     s.on("gameState", (data: any) => {
-      console.log("📊 State:", {
-        hand: data.hand?.length,
-        board: data.board?.length,
-        turn: data.turn,
-        myIdx: data.playerIndex,
-        myTurn: data.turn === data.playerIndex,
-        opp: data.opponentName,
-        oppHand: data.opponentHandCount,
-        pile: data.pileCount,
-        started: data.started,
-      });
-
       setBoard(data.board || []);
       setHand(data.hand || []);
       setPileCount(data.pileCount || 0);
       setOppCount(data.opponentHandCount || 0);
       setOppName(data.opponentName || "Wacht...");
       setMyTurn(data.turn === data.playerIndex);
+      if (data.started) { setWaiting(false); setView("game"); setMode("online"); }
 
-      // ✅ Als we een room code nog niet hebben (joiner), zet die
-      if (data.started) {
-        setWaiting(false);
-        setView("game");  // ← zorg dat we ALTIJD in game view zijn
-        setMode("online");
-      }
-
-      if (data.winner) {
-        setGameOver(data.winner.index === data.playerIndex ? "🎉 JIJ WINT!" : `💀 ${data.winner.name} wint!`);
+      if (data.winner && !gameOver) {
+        const won = data.winner.index === data.playerIndex;
+        setGameOver(won ? "🎉 JIJ WINT!" : `💀 ${data.winner.name} wint!`);
+        triggerGameEnd(won);
       }
     });
 
-    s.on("joinError", (m: string) => {
-      console.log("❌ Join error:", m);
-      setJoinErr(m);
-    });
-
+    s.on("joinError", (m: string) => setJoinErr(m));
     s.on("tilePlayed", ({ playerName, tile }: any) => sys(`🎯 ${playerName}: [${tile[0]}|${tile[1]}]`));
     s.on("playerPassed", ({ name: n }: any) => sys(`⏭️ ${n} past`));
     s.on("chatMsg", (m: Msg) => {
       setMsgs(p => [...p, m]);
       setTab(prev => { if (prev !== "chat") setUnread(c => c + 1); return prev; });
     });
-    s.on("opponentLeft", () => {
-      sys("❌ Tegenstander weg!");
-      setGameOver("❌ Tegenstander weg");
-    });
+    s.on("opponentLeft", () => { sys("❌ Tegenstander weg!"); setGameOver("❌ Tegenstander weg"); });
     s.on("gameRestarted", () => {
-      setGameOver(null);
+      setGameOver(null); setShowLaugh(false); setShowWin(false);
       sys("🔄 Nieuw spel!");
     });
     s.on("playError", (m: string) => sys(`❌ ${m}`));
     s.on("drawError", (m: string) => sys(`❌ ${m}`));
 
     return () => { s.removeAllListeners(); s.disconnect(); };
-  }, [sys]);
+  }, [sys, triggerGameEnd, gameOver]);
 
-  // === ONLINE ===
+  // Online
   const oCreate = () => {
-    if (status !== "on") {
-      setJoinErr("Server start op... wacht ~15 sec!");
-      fetch(SOCKET_URL).catch(() => {});
-      return;
-    }
-    setJoinErr("");
-    sock.current?.emit("createRoom", { playerName: name || "Speler" });
+    if (status !== "on") { setJoinErr("Server start op... wacht ~15 sec!"); fetch(SOCKET_URL).catch(() => {}); return; }
+    setJoinErr(""); sock.current?.emit("createRoom", { playerName: name || "Speler" });
   };
-
-  // ✅ Join - na emit gaat de frontend automatisch naar game via gameStarted + gameState events
   const oJoin = () => {
     const c = input.trim().toUpperCase();
     if (!c) { setJoinErr("Vul een code in!"); return; }
-    if (status !== "on") {
-      setJoinErr("Server start op... wacht even!");
-      fetch(SOCKET_URL).catch(() => {});
-      return;
-    }
-    setJoinErr("");
-
-    // ✅ Sla room code alvast op zodat we die hebben als gameState binnenkomt
-    setRoom(c);
-    setMode("online");
-    setMsgs([]);
-    setTab("board");
-    setGameOver(null);
-
-    console.log("📤 Joining room:", c);
+    if (status !== "on") { setJoinErr("Server start op..."); fetch(SOCKET_URL).catch(() => {}); return; }
+    setJoinErr(""); setRoom(c); setMode("online"); setMsgs([]); setTab("board"); setGameOver(null);
+    setShowLaugh(false); setShowWin(false);
     sock.current?.emit("joinRoom", { code: c, playerName: name || "Speler" });
   };
-
   const oPlay = (i: number) => { if (myTurn && !gameOver) sock.current?.emit("playTile", { tileIndex: i }); };
   const oDraw = () => { if (myTurn && !gameOver) sock.current?.emit("drawTile"); };
   const oPass = () => { if (myTurn && !gameOver) sock.current?.emit("passTurn"); };
   const oChat = (t: string) => { if (t.trim()) { sock.current?.emit("sendChat", { text: t.trim() }); setMsg(""); setShowEm(false); } };
-  const oRestart = () => sock.current?.emit("restartGame");
+  const oRestart = () => { setShowLaugh(false); setShowWin(false); sock.current?.emit("restartGame"); };
 
-  // === BOT ===
+  // Bot
   const startBot = () => {
     const a = shuf(allT());
     setHand(a.slice(0, 7)); setBotHand(a.slice(7, 14)); setPile(a.slice(14));
     setBoard([]); setMyTurn(true); setGameOver(null); setMode("bot");
     setView("game"); setRoom("BOT"); setMsgs([]); setTab("board");
     setOppName("Bot"); setOppCount(7); setPileCount(14);
+    setShowLaugh(false); setShowWin(false);
     setTimeout(() => sys("🤖 Jij begint!"), 100);
   };
 
@@ -237,7 +427,12 @@ export default function Home() {
     const nb = side === "left" ? [{ tile, flipped: fl }, ...board] : [...board, { tile, flipped: fl }];
     const nh = hand.filter((_, i) => i !== idx);
     setBoard(nb); setHand(nh);
-    if (!nh.length) { setGameOver("🎉 JIJ WINT!"); sys("🎉 Gefeliciteerd!"); return; }
+    if (!nh.length) {
+      setGameOver("🎉 JIJ WINT!");
+      triggerGameEnd(true);
+      sys("🎉 Gefeliciteerd!");
+      return;
+    }
     setMyTurn(false);
     setTimeout(() => botAI(nb), 700);
   };
@@ -261,7 +456,10 @@ export default function Home() {
       const nb2 = ps === "left" ? [{ tile: bt, flipped: fl }, ...cb] : [...cb, { tile: bt, flipped: fl }];
       setBoard(nb2); sys(`🤖 [${bt[0]}|${bt[1]}]`);
       const nbh = prev.filter((_, i) => i !== pi);
-      if (!nbh.length) { setGameOver("💀 BOT WINT!"); }
+      if (!nbh.length) {
+        setGameOver("💀 BOT WINT!");
+        triggerGameEnd(false);
+      }
       setMyTurn(true); setOppCount(nbh.length); return nbh;
     });
   };
@@ -287,7 +485,6 @@ export default function Home() {
     }, 800 + Math.random() * 1200);
   };
 
-  // Unified
   const play = (t: Tile, i: number) => mode === "bot" ? bPlay(t, i) : oPlay(i);
   const draw = () => mode === "bot" ? bDraw() : oDraw();
   const pass = () => mode === "bot" ? bPass() : oPass();
@@ -298,7 +495,6 @@ export default function Home() {
   const cPile = mode === "bot" ? pile.length : pileCount;
   const cOpp = mode === "bot" ? botHand.length : oppCount;
 
-  // Components
   const HTile = ({ v, hl, sm }: { v: Tile; hl?: boolean; sm?: boolean }) => (
     <div className={`${sm ? "w-[32px] h-[64px]" : "w-[40px] h-[80px]"} rounded-lg flex flex-col items-center justify-around py-0.5 shadow-lg cursor-pointer select-none border-2 transition-all duration-150 active:scale-90 ${hl ? "border-yellow-400 ring-2 ring-yellow-400/60 shadow-yellow-500/40" : "border-[#C4B998]"}`}
       style={{ background: "linear-gradient(160deg, #FFFEF5, #F5EDDA)" }}>
@@ -307,7 +503,6 @@ export default function Home() {
       <Dots v={v[1]} sz={sm ? "w-[14px] h-[14px]" : "w-[18px] h-[18px]"} />
     </div>
   );
-
   const BTile2 = ({ v, fl }: { v: Tile; fl: boolean }) => {
     const d: Tile = fl ? [v[1], v[0]] : v;
     return (
@@ -319,7 +514,6 @@ export default function Home() {
       </div>
     );
   };
-
   const Back = () => (
     <div className="w-[14px] h-[26px] sm:w-[18px] sm:h-[32px] rounded bg-gradient-to-br from-[#8B0000] to-[#5C0000] border border-[#3D0000] shadow flex items-center justify-center flex-shrink-0">
       <div className="w-[50%] h-[50%] border border-[#FFD700]/20 rounded-sm" />
@@ -328,6 +522,10 @@ export default function Home() {
 
   return (
     <main className="min-h-[100dvh] flex flex-col items-center justify-center relative overflow-hidden">
+      {/* ✅ Win/Lose overlays */}
+      {showLaugh && <LaughOverlay onClose={() => setShowLaugh(false)} />}
+      {showWin && <><Confetti /><WinOverlay onClose={() => setShowWin(false)} /></>}
+
       <div className="fixed inset-0 z-0">
         <div className="absolute top-0 left-0 right-0 h-1/3 bg-[#ED2024]" />
         <div className="absolute top-1/3 left-0 right-0 h-1/3 bg-white" />
@@ -342,14 +540,13 @@ export default function Home() {
         {view === "menu" && (
           <div className="flex items-center gap-1 bg-black/50 px-2 py-0.5 rounded-full mr-1">
             <div className={`w-2 h-2 rounded-full ${status === "on" ? "bg-green-400 animate-pulse" : status === "err" ? "bg-red-500" : "bg-gray-500"}`} />
-            <span className="text-white/50 text-[9px]">{status === "on" ? "Online ✓" : status === "err" ? "Herverbinden..." : "..."}</span>
+            <span className="text-white/50 text-[9px]">{status === "on" ? "Online ✓" : "..."}</span>
           </div>
         )}
         <button onClick={() => setLang("KU")} className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${lang === "KU" ? "bg-yellow-500 text-black" : "bg-black/40 text-white/60"}`}>KU</button>
         <button onClick={() => setLang("NL")} className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${lang === "NL" ? "bg-yellow-500 text-black" : "bg-black/40 text-white/60"}`}>NL</button>
       </div>
 
-      {/* ===== MENU ===== */}
       {view === "menu" ? (
         <div className="flex flex-col items-center z-10 w-full max-w-[300px] px-5 py-4">
           <div className="relative mb-1">
@@ -357,17 +554,14 @@ export default function Home() {
             <h1 className="text-[42px] font-black text-white italic drop-shadow-[0_3px_8px_rgba(0,0,0,0.6)] relative z-10">DOMINO</h1>
           </div>
           <p className="text-white/80 text-[10px] mb-4 font-bold bg-black/30 px-3 py-1 rounded-full">☀️ 28 stenen • 7 per speler</p>
-
           <input type="text" placeholder={lang === "KU" ? "ناوی تۆ..." : "Je naam..."} value={name} onChange={e => setName(e.target.value)}
             className="w-full p-2.5 rounded-2xl text-center font-bold text-black bg-white shadow-lg border-2 border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-3 text-sm" />
-
           <button onClick={startBot} className="w-full bg-gradient-to-b from-blue-500 to-blue-700 text-white font-black py-3 rounded-2xl border-b-4 border-blue-900 mb-2 active:translate-y-0.5 active:border-b-2 shadow-xl text-sm">
             🤖 {lang === "KU" ? "یاری دژی بۆت" : "Tegen Bot"}
           </button>
           <button onClick={oCreate} className="w-full bg-gradient-to-b from-green-500 to-green-700 text-white font-black py-3 rounded-2xl border-b-4 border-green-900 mb-2 active:translate-y-0.5 active:border-b-2 shadow-xl text-sm">
             🏠 {lang === "KU" ? "دروستکردنی ژوور" : "Kamer Maken"}
           </button>
-
           <div className="bg-gradient-to-b from-purple-500 to-purple-700 p-3 rounded-2xl border-b-4 border-purple-900 w-full shadow-xl">
             <input type="text" placeholder="CODE..." value={input} onChange={e => setInput(e.target.value.toUpperCase())}
               className="w-full p-2.5 rounded-xl text-center font-bold mb-1.5 uppercase text-black bg-white border-2 border-purple-300 text-lg tracking-[0.3em]" maxLength={5} />
@@ -376,65 +570,52 @@ export default function Home() {
               🚪 {lang === "KU" ? "چوونە ناو ژوور" : "Joinen"}
             </button>
           </div>
-
           {status !== "on" && (
             <div className="mt-3 bg-yellow-500/20 rounded-xl p-2 w-full">
-              <p className="text-yellow-300 text-[10px] text-center font-bold">⏳ Server start op... wacht ~15 sec</p>
-              <button onClick={() => fetch(SOCKET_URL).catch(() => {})} className="w-full mt-1 text-yellow-400 text-[10px] font-bold bg-yellow-500/10 rounded py-1">🔄 Opnieuw</button>
+              <p className="text-yellow-300 text-[10px] text-center font-bold">⏳ Server start op...</p>
+              <button onClick={() => fetch(SOCKET_URL).catch(() => {})} className="w-full mt-1 text-yellow-400 text-[10px] font-bold bg-yellow-500/10 rounded py-1">🔄</button>
             </div>
           )}
           <p className="text-white/20 text-[10px] mt-3">☀️ Biji Kurdistan</p>
         </div>
       ) : (
-
-        /* ===== GAME ===== */
         <div className="w-full h-[100dvh] flex flex-col z-10">
-
-          {/* Top */}
           <div className="flex items-center justify-between px-2 py-1.5 bg-black/60 flex-shrink-0">
-            <button onClick={() => { setView("menu"); setWaiting(false); }} className="text-white/60 text-lg px-1 active:text-white">↩</button>
+            <button onClick={() => { setView("menu"); setWaiting(false); setShowLaugh(false); setShowWin(false); }} className="text-white/60 text-lg px-1 active:text-white">↩</button>
             <div className="flex items-center gap-1.5">
               <span className="bg-yellow-500 text-black px-2.5 py-0.5 rounded-lg font-black text-[11px]">{room}</span>
-              {room !== "BOT" && <button onClick={copy} className="text-white/60 text-[10px] bg-white/10 px-2 py-0.5 rounded-lg active:bg-white/20">{copied ? "✅" : "📋"}</button>}
+              {room !== "BOT" && <button onClick={copy} className="text-white/60 text-[10px] bg-white/10 px-2 py-0.5 rounded-lg">{copied ? "✅" : "📋"}</button>}
             </div>
             <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black ${myTurn ? "bg-green-500 text-black" : "bg-red-500/80 text-white"}`}>
               {myTurn ? "🟢 Jij" : `🔴 ${oppName}`}
             </div>
           </div>
 
-          {/* Waiting */}
           {waiting && (
             <div className="bg-gradient-to-r from-orange-500 to-yellow-500 text-black font-black text-center py-2.5 text-[11px] flex-shrink-0">
-              ⏳ Stuur code naar je vriend!
+              ⏳ Stuur code!
               <span className="bg-black text-white px-3 py-1 rounded-lg font-mono mx-2 text-base tracking-widest">{room}</span>
               <button onClick={copy} className="bg-white/70 px-2 py-0.5 rounded text-[10px] font-bold">{copied ? "✅" : "📋"}</button>
             </div>
           )}
 
-          {/* Game over */}
           {gameOver && (
-            <div className="bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 text-black font-black text-center py-3 text-base flex-shrink-0">
-              {gameOver}
+            <div className={`text-black font-black text-center py-3 text-base flex-shrink-0 ${iWon ? "bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500" : "bg-gradient-to-r from-red-500 via-red-600 to-red-700 text-white"}`}>
+              {gameOver} {!iWon && "🤣"}
               <button onClick={restart} className="ml-3 bg-black text-white px-4 py-1.5 rounded-xl text-xs font-bold">🔄</button>
             </div>
           )}
 
-          {/* Mobile tabs */}
           <div className="flex sm:hidden flex-shrink-0">
-            <button onClick={() => setTab("board")} className={`flex-1 py-2 text-xs font-bold ${tab === "board" ? "bg-green-900/50 text-green-400 border-b-2 border-green-400" : "text-white/30 bg-black/30"}`}>
-              🎮 Spel
-            </button>
+            <button onClick={() => setTab("board")} className={`flex-1 py-2 text-xs font-bold ${tab === "board" ? "bg-green-900/50 text-green-400 border-b-2 border-green-400" : "text-white/30 bg-black/30"}`}>🎮 Spel</button>
             <button onClick={() => { setTab("chat"); setUnread(0); }} className={`flex-1 py-2 text-xs font-bold relative ${tab === "chat" ? "bg-green-900/50 text-green-400 border-b-2 border-green-400" : "text-white/30 bg-black/30"}`}>
               💬 Chat
               {unread > 0 && tab !== "chat" && <span className="absolute top-1 right-[30%] bg-red-500 text-white text-[7px] w-4 h-4 rounded-full flex items-center justify-center font-bold animate-bounce">{unread}</span>}
             </button>
           </div>
 
-          {/* Main */}
           <div className="flex-1 flex min-h-0">
-            {/* Board */}
             <div className={`flex-1 flex flex-col min-h-0 ${tab === "chat" ? "hidden sm:flex" : "flex"}`}>
-              {/* Opponent */}
               <div className="bg-black/40 px-2 py-1.5 flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-1.5">
                   <div className="w-7 h-7 rounded-full bg-red-900/80 flex items-center justify-center text-xs">👤</div>
@@ -443,7 +624,6 @@ export default function Home() {
                 <div className="flex gap-px overflow-hidden max-w-[55%]">{[...Array(Math.min(cOpp, 14))].map((_, i) => <Back key={i} />)}</div>
               </div>
 
-              {/* Table */}
               <div className="flex-1 relative overflow-auto" style={{ background: "radial-gradient(ellipse at center, #2D7A3A 0%, #1B5E27 50%, #0F3D14 100%)", boxShadow: "inset 0 0 80px rgba(0,0,0,0.5)" }}>
                 <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23000'/%3E%3Crect width='1' height='1' fill='%23222'/%3E%3C/svg%3E")`, backgroundSize: "4px 4px" }} />
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Sun s={90} c="opacity-[0.02]" /></div>
@@ -457,7 +637,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Player bar */}
               <div className="bg-black/50 px-2 py-1.5 flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-1.5">
                   <div className="w-7 h-7 rounded-full bg-yellow-700/80 flex items-center justify-center text-xs">☀️</div>
@@ -471,7 +650,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Chat */}
             <div className={`w-full sm:w-52 md:w-56 bg-black/40 flex flex-col border-l border-white/5 ${tab === "board" ? "hidden sm:flex" : "flex"}`}>
               <div className="text-white/40 font-bold text-[10px] text-center py-1.5 bg-white/5 hidden sm:block">💬 Chat</div>
               <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
@@ -498,7 +676,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Hand */}
           <div className="bg-gradient-to-t from-[#070710] via-[#0d1117] to-[#161b22] px-1.5 py-2 border-t-2 border-yellow-500/40 flex-shrink-0">
             {!canAny() && myTurn && !gameOver && cPile > 0 && (
               <div className="text-center text-red-400/80 text-[9px] font-bold mb-1 animate-pulse">⚠️ Pak uit de pot!</div>
