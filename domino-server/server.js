@@ -13,151 +13,161 @@ const io = new Server(server, {
   pingInterval: 25000,
 });
 
-// ======= HELPER FUNCTIES =======
-
 function allTiles() {
-  const tiles = [];
-  for (let i = 0; i <= 6; i++) {
-    for (let j = i; j <= 6; j++) {
-      tiles.push([i, j]);
-    }
-  }
-  return tiles;
+  var t = [];
+  for (var i = 0; i <= 6; i++)
+    for (var j = i; j <= 6; j++)
+      t.push([i, j]);
+  return t;
 }
 
 function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var temp = a[i];
+    a[i] = a[j];
+    a[j] = temp;
   }
   return a;
 }
 
 function genCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 5; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
+  var c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  var r = "";
+  for (var i = 0; i < 5; i++) r += c[Math.floor(Math.random() * c.length)];
+  return r;
 }
 
 function getEnds(board) {
   if (board.length === 0) return [-1, -1];
-  const first = board[0];
-  const last = board[board.length - 1];
-  const leftEnd = first.flipped ? first.tile[1] : first.tile[0];
-  const rightEnd = last.flipped ? last.tile[0] : last.tile[1];
-  return [leftEnd, rightEnd];
+  var f = board[0];
+  var l = board[board.length - 1];
+  return [
+    f.flipped ? f.tile[1] : f.tile[0],
+    l.flipped ? l.tile[0] : l.tile[1]
+  ];
 }
 
 function canPlay(tile, board, ends) {
   if (board.length === 0) return "right";
-  const [leftEnd, rightEnd] = ends;
-  if (tile[0] === leftEnd || tile[1] === leftEnd) return "left";
-  if (tile[0] === rightEnd || tile[1] === rightEnd) return "right";
+  if (tile[0] === ends[0] || tile[1] === ends[0]) return "left";
+  if (tile[0] === ends[1] || tile[1] === ends[1]) return "right";
   return null;
 }
 
-// ======= ROOMS =======
+var rooms = {};
 
-const rooms = {};
+function isConnected(socketId) {
+  var s = io.sockets.sockets.get(socketId);
+  return s && s.connected;
+}
 
-// Health check
-app.get("/", (req, res) => {
-  const roomList = Object.keys(rooms).map((code) => ({
-    code,
-    players: rooms[code].players.length,
-    started: rooms[code].started,
-  }));
-  res.json({
-    status: "✅ Domino server online!",
-    roomCount: Object.keys(rooms).length,
-    rooms: roomList,
-  });
-});
+function cleanRoom(room) {
+  var before = room.players.length;
+  var alive = [];
+  for (var i = 0; i < room.players.length; i++) {
+    if (isConnected(room.players[i].id)) {
+      alive.push(room.players[i]);
+    }
+  }
+  room.players = alive;
+  if (room.players.length < 2) {
+    room.started = false;
+  }
+  for (var i = 0; i < room.players.length; i++) {
+    var s = io.sockets.sockets.get(room.players[i].id);
+    if (s) s.playerIndex = i;
+  }
+  if (before !== room.players.length) {
+    console.log("Cleaned room " + room.code + ": " + before + " -> " + room.players.length);
+  }
+}
 
-// Debug endpoint
-app.get("/room/:code", (req, res) => {
-  const room = rooms[req.params.code.toUpperCase()];
-  if (!room) return res.json({ error: "Room not found" });
-  res.json({
-    code: room.code,
-    players: room.players.map((p) => ({
-      name: p.name,
-      handCount: p.hand.length,
-      connected: !!io.sockets.sockets.get(p.id),
-    })),
-    started: room.started,
-    turn: room.turn,
-    boardCount: room.board.length,
-    pileCount: room.pile.length,
-  });
-});
+function sendState(room) {
+  for (var i = 0; i < room.players.length; i++) {
+    var player = room.players[i];
+    var otherIdx = i === 0 ? 1 : 0;
+    var other = room.players[otherIdx];
 
-// ======= GAME STATE SENDER =======
-
-function sendGameState(room) {
-  console.log(`📤 Sending game state for room ${room.code}`);
-  console.log(`   Players: ${room.players.map((p) => p.name + "(" + p.hand.length + " tiles)").join(", ")}`);
-  console.log(`   Turn: ${room.turn}, Board: ${room.board.length}, Pile: ${room.pile.length}`);
-
-  room.players.forEach((player, idx) => {
-    const otherIdx = idx === 0 ? 1 : 0;
-    const other = room.players[otherIdx];
-
-    const state = {
+    var data = {
       board: room.board,
-      hand: player.hand,
+      hand: JSON.parse(JSON.stringify(player.hand)),
       turn: room.turn,
       pileCount: room.pile.length,
       opponentHandCount: other ? other.hand.length : 0,
       opponentName: other ? other.name : "Wacht...",
-      playerIndex: idx,
+      playerIndex: i,
       started: room.started,
       winner: room.winner || null,
     };
 
-    console.log(`   → Sending to ${player.name} (idx ${idx}): hand=${player.hand.length}, turn=${room.turn}, myIdx=${idx}, isMyTurn=${room.turn === idx}`);
+    console.log("  -> " + player.name + " idx=" + i + " hand=" + data.hand.length + " turn=" + data.turn + " myTurn=" + (data.turn === i));
 
-    io.to(player.id).emit("gameState", state);
-  });
+    if (isConnected(player.id)) {
+      io.to(player.id).emit("gameState", data);
+    }
+  }
 }
 
-// ======= SOCKET EVENTS =======
+app.get("/", function(req, res) {
+  Object.keys(rooms).forEach(function(code) { cleanRoom(rooms[code]); });
+  var roomList = [];
+  Object.keys(rooms).forEach(function(code) {
+    roomList.push({
+      code: code,
+      players: rooms[code].players.map(function(p) {
+        return { name: p.name, hand: p.hand.length, connected: isConnected(p.id) };
+      }),
+      started: rooms[code].started,
+    });
+  });
+  res.json({ status: "Domino server v4 online!", rooms: roomList });
+});
 
-io.on("connection", (socket) => {
-  console.log("✅ Connected:", socket.id);
+app.get("/room/:code", function(req, res) {
+  var room = rooms[req.params.code.toUpperCase()];
+  if (!room) return res.json({ error: "Not found" });
+  cleanRoom(room);
+  res.json({
+    code: room.code,
+    players: room.players.map(function(p) {
+      return { name: p.name, hand: p.hand.length, connected: isConnected(p.id) };
+    }),
+    started: room.started,
+    turn: room.turn,
+    board: room.board.length,
+    pile: room.pile.length,
+  });
+});
 
-  // ---- KAMER MAKEN ----
-  socket.on("createRoom", ({ playerName }) => {
-    // Genereer unieke code
-    let code = genCode();
+io.on("connection", function(socket) {
+  console.log("CONNECT: " + socket.id);
+
+  socket.on("createRoom", function(data) {
+    var playerName = (data && data.playerName) ? data.playerName : "Speler";
+
+    if (socket.roomCode && rooms[socket.roomCode]) {
+      var old = rooms[socket.roomCode];
+      old.players = old.players.filter(function(p) { return p.id !== socket.id; });
+      socket.leave(socket.roomCode);
+      if (old.players.length === 0) delete rooms[socket.roomCode];
+    }
+
+    var code = genCode();
     while (rooms[code]) code = genCode();
 
-    // Schud alle tegels
-    const all = shuffle(allTiles());
-    const hand1 = all.slice(0, 7);
-    const hand2 = all.slice(7, 14);
-    const pile = all.slice(14);
-
-    console.log(`🏠 Creating room ${code} for ${playerName}`);
-    console.log(`   Hand1 (${playerName}): ${JSON.stringify(hand1)}`);
-    console.log(`   Hand2 (waiting): ${JSON.stringify(hand2)}`);
-    console.log(`   Pile: ${pile.length} tiles`);
+    var all = shuffle(allTiles());
 
     rooms[code] = {
       code: code,
-      players: [
-        {
-          id: socket.id,
-          name: playerName || "Speler 1",
-          hand: hand1,
-        },
-      ],
-      hand2: hand2, // Bewaard voor speler 2
-      pile: pile,
+      players: [{
+        id: socket.id,
+        name: playerName,
+        hand: all.slice(0, 7),
+      }],
+      hand2: all.slice(7, 14),
+      pile: all.slice(14),
       board: [],
       turn: 0,
       started: false,
@@ -165,297 +175,220 @@ io.on("connection", (socket) => {
       createdAt: Date.now(),
     };
 
-    // Socket join room
     socket.join(code);
     socket.roomCode = code;
     socket.playerIndex = 0;
 
-    // Stuur room created event
+    console.log("ROOM CREATED: " + code + " by " + playerName);
+    console.log("  P1 hand: " + JSON.stringify(all.slice(0, 7)));
+
     socket.emit("roomCreated", { code: code });
-
-    // Stuur game state (alleen speler 1 is er nu)
-    sendGameState(rooms[code]);
-
-    console.log(`✅ Room ${code} created successfully`);
+    sendState(rooms[code]);
   });
 
-  // ---- KAMER JOINEN ----
-  socket.on("joinRoom", ({ code, playerName }) => {
-    const cleanCode = (code || "").trim().toUpperCase();
-    console.log(`🚪 ${playerName} trying to join room: "${cleanCode}"`);
-    console.log(`   Available rooms: ${Object.keys(rooms).join(", ") || "none"}`);
+  socket.on("joinRoom", function(data) {
+    var code = ((data && data.code) || "").trim().toUpperCase();
+    var playerName = (data && data.playerName) ? data.playerName : "Speler";
 
-    const room = rooms[cleanCode];
+    console.log("JOIN REQUEST: " + playerName + " -> " + code);
+    console.log("  Rooms: " + Object.keys(rooms).join(", "));
 
+    var room = rooms[code];
     if (!room) {
-      console.log(`   ❌ Room "${cleanCode}" not found!`);
-      socket.emit("joinError", `Kamer "${cleanCode}" bestaat niet!`);
+      console.log("  FAIL: not found");
+      socket.emit("joinError", "Kamer '" + code + "' bestaat niet!");
       return;
     }
 
-    if (room.players.length >= 2) {
-      console.log(`   ❌ Room "${cleanCode}" is full!`);
-      socket.emit("joinError", "Kamer is vol! (max 2 spelers)");
-      return;
-    }
+    cleanRoom(room);
 
-    // Check of dezelfde speler niet dubbel joint
-    if (room.players[0].id === socket.id) {
-      console.log(`   ❌ Same player trying to join twice!`);
+    console.log("  Room " + code + " players after cleanup: " + room.players.length);
+    room.players.forEach(function(p, i) {
+      console.log("    [" + i + "] " + p.name + " id=" + p.id.substring(0, 6) + " connected=" + isConnected(p.id));
+    });
+
+    if (room.players.find(function(p) { return p.id === socket.id; })) {
+      console.log("  FAIL: already in room");
       socket.emit("joinError", "Je zit al in deze kamer!");
       return;
     }
 
-    console.log(`   ✅ Joining room ${cleanCode} as player 2`);
+    if (room.players.length >= 2) {
+      console.log("  FAIL: room full");
+      socket.emit("joinError", "Kamer is vol!");
+      return;
+    }
 
-    // Voeg speler 2 toe met de bewaarde hand
+    if (socket.roomCode && rooms[socket.roomCode] && socket.roomCode !== code) {
+      var oldRoom = rooms[socket.roomCode];
+      oldRoom.players = oldRoom.players.filter(function(p) { return p.id !== socket.id; });
+      socket.leave(socket.roomCode);
+      if (oldRoom.players.length === 0) delete rooms[socket.roomCode];
+    }
+
+    var hand2copy = JSON.parse(JSON.stringify(room.hand2));
+
     room.players.push({
       id: socket.id,
-      name: playerName || "Speler 2",
-      hand: room.hand2,
+      name: playerName,
+      hand: hand2copy,
     });
 
-    // Socket join room
-    socket.join(cleanCode);
-    socket.roomCode = cleanCode;
+    socket.join(code);
+    socket.roomCode = code;
     socket.playerIndex = 1;
-
-    // Start het spel
     room.started = true;
 
-    console.log(`   Player 1: ${room.players[0].name} (${room.players[0].hand.length} tiles)`);
-    console.log(`   Player 2: ${room.players[1].name} (${room.players[1].hand.length} tiles)`);
+    console.log("  SUCCESS! " + room.players[0].name + " vs " + room.players[1].name);
+    console.log("  P1: " + room.players[0].hand.length + " tiles, P2: " + room.players[1].hand.length + " tiles");
 
-    // Stuur game started event naar beide spelers
-    io.to(cleanCode).emit("gameStarted", {
+    io.to(code).emit("gameStarted", {
       p1: room.players[0].name,
       p2: room.players[1].name,
     });
 
-    // Stuur game state naar beide spelers
-    sendGameState(room);
-
-    console.log(`✅ Game started in room ${cleanCode}!`);
+    sendState(room);
   });
 
-  // ---- TEGEL SPELEN ----
-  socket.on("playTile", ({ tileIndex }) => {
-    const code = socket.roomCode;
-    const pIdx = socket.playerIndex;
-    const room = rooms[code];
-
-    if (!room) return console.log("❌ playTile: room not found");
-    if (!room.started) return console.log("❌ playTile: game not started");
-    if (room.winner) return console.log("❌ playTile: game already over");
-    if (room.turn !== pIdx) {
-      socket.emit("playError", "Het is niet jouw beurt!");
-      return;
-    }
-
-    const player = room.players[pIdx];
-    if (!player) return;
-
-    const tile = player.hand[tileIndex];
-    if (!tile) {
-      socket.emit("playError", "Ongeldige tegel!");
-      return;
-    }
-
-    const ends = getEnds(room.board);
-    const side = canPlay(tile, room.board, ends);
-
-    if (!side && room.board.length > 0) {
-      socket.emit("playError", "Deze tegel past niet!");
-      return;
-    }
-
-    // Bepaal of de tegel omgedraaid moet worden
-    let flipped = false;
-    if (room.board.length === 0) {
-      flipped = false;
-    } else if (side === "left") {
-      flipped = tile[1] !== ends[0];
-    } else {
-      flipped = tile[0] !== ends[1];
-    }
-
-    // Voeg toe aan bord
-    const entry = { tile: tile, flipped: flipped };
-    if (side === "left") {
-      room.board.unshift(entry);
-    } else {
-      room.board.push(entry);
-    }
-
-    // Verwijder uit hand
-    player.hand.splice(tileIndex, 1);
-
-    console.log(`🎯 ${player.name} played [${tile[0]}|${tile[1]}] on ${side}. Hand left: ${player.hand.length}`);
-
-    // Check win
-    if (player.hand.length === 0) {
-      room.winner = { index: pIdx, name: player.name };
-      console.log(`🏆 ${player.name} WINS!`);
-    }
-
-    // Wissel beurt
-    room.turn = room.turn === 0 ? 1 : 0;
-
-    // Broadcast
-    io.to(code).emit("tilePlayed", {
-      playerName: player.name,
-      tile: tile,
-      side: side,
-    });
-
-    sendGameState(room);
-  });
-
-  // ---- PAK UIT POT ----
-  socket.on("drawTile", () => {
-    const code = socket.roomCode;
-    const pIdx = socket.playerIndex;
-    const room = rooms[code];
-
+  socket.on("playTile", function(data) {
+    var code = socket.roomCode;
+    var pIdx = socket.playerIndex;
+    var room = rooms[code];
     if (!room || !room.started || room.winner) return;
     if (room.turn !== pIdx) {
-      socket.emit("playError", "Het is niet jouw beurt!");
+      socket.emit("playError", "Niet jouw beurt!");
       return;
     }
 
+    var player = room.players[pIdx];
+    if (!player) return;
+    var tile = player.hand[data.tileIndex];
+    if (!tile) return;
+
+    var ends = getEnds(room.board);
+    var side = canPlay(tile, room.board, ends);
+    if (!side && room.board.length > 0) {
+      socket.emit("playError", "Past niet!");
+      return;
+    }
+
+    var flipped = false;
+    if (room.board.length > 0) {
+      if (side === "left") flipped = tile[1] !== ends[0];
+      else flipped = tile[0] !== ends[1];
+    }
+
+    if (side === "left") {
+      room.board.unshift({ tile: tile, flipped: flipped });
+    } else {
+      room.board.push({ tile: tile, flipped: flipped });
+    }
+
+    player.hand.splice(data.tileIndex, 1);
+    console.log(player.name + " played [" + tile[0] + "|" + tile[1] + "] left=" + player.hand.length);
+
+    if (player.hand.length === 0) {
+      room.winner = { index: pIdx, name: player.name };
+    }
+    room.turn = room.turn === 0 ? 1 : 0;
+
+    io.to(code).emit("tilePlayed", { playerName: player.name, tile: tile });
+    sendState(room);
+  });
+
+  socket.on("drawTile", function() {
+    var code = socket.roomCode;
+    var pIdx = socket.playerIndex;
+    var room = rooms[code];
+    if (!room || !room.started || room.winner) return;
+    if (room.turn !== pIdx) return;
     if (room.pile.length === 0) {
       socket.emit("drawError", "Pot is leeg!");
       return;
     }
-
-    const drawn = room.pile.pop();
+    var drawn = room.pile.pop();
     room.players[pIdx].hand.push(drawn);
-
-    console.log(`📦 ${room.players[pIdx].name} drew [${drawn[0]}|${drawn[1]}]. Hand: ${room.players[pIdx].hand.length}`);
-
-    sendGameState(room);
+    sendState(room);
   });
 
-  // ---- PAS BEURT ----
-  socket.on("passTurn", () => {
-    const code = socket.roomCode;
-    const pIdx = socket.playerIndex;
-    const room = rooms[code];
-
+  socket.on("passTurn", function() {
+    var code = socket.roomCode;
+    var pIdx = socket.playerIndex;
+    var room = rooms[code];
     if (!room || !room.started || room.winner) return;
     if (room.turn !== pIdx) return;
-
-    console.log(`⏭️ ${room.players[pIdx].name} passed`);
-
     room.turn = room.turn === 0 ? 1 : 0;
-
-    io.to(code).emit("playerPassed", {
-      name: room.players[pIdx].name,
-    });
-
-    sendGameState(room);
+    io.to(code).emit("playerPassed", { name: room.players[pIdx].name });
+    sendState(room);
   });
 
-  // ---- CHAT ----
-  socket.on("sendChat", ({ text }) => {
-    const code = socket.roomCode;
+  socket.on("sendChat", function(data) {
+    var code = socket.roomCode;
     if (!code || !rooms[code]) return;
-
-    const room = rooms[code];
-    const player = room.players.find((p) => p.id === socket.id);
-
-    const msg = {
+    var room = rooms[code];
+    var player = room.players.find(function(p) { return p.id === socket.id; });
+    io.to(code).emit("chatMsg", {
       sender: player ? player.name : "???",
-      text: text,
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
-
-    console.log(`💬 [${code}] ${msg.sender}: ${msg.text}`);
-
-    // Stuur naar IEDEREEN in de room
-    io.to(code).emit("chatMsg", msg);
+      text: data.text,
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    });
   });
 
-  // ---- RESTART ----
-  socket.on("restartGame", () => {
-    const code = socket.roomCode;
-    const room = rooms[code];
+  socket.on("restartGame", function() {
+    var code = socket.roomCode;
+    var room = rooms[code];
     if (!room) return;
-
-    console.log(`🔄 Restarting game in room ${code}`);
-
-    const all = shuffle(allTiles());
-
+    var all = shuffle(allTiles());
     room.board = [];
     room.pile = all.slice(14);
     room.turn = 0;
     room.winner = null;
-
     room.players[0].hand = all.slice(0, 7);
-    if (room.players[1]) {
-      room.players[1].hand = all.slice(7, 14);
-    }
-
+    if (room.players[1]) room.players[1].hand = all.slice(7, 14);
+    room.hand2 = all.slice(7, 14);
     io.to(code).emit("gameRestarted");
-    sendGameState(room);
+    sendState(room);
   });
 
-  // ---- DISCONNECT ----
-  socket.on("disconnect", () => {
-    const code = socket.roomCode;
-    console.log(`🔌 Disconnected: ${socket.id} from room ${code || "none"}`);
+  socket.on("disconnect", function(reason) {
+    var code = socket.roomCode;
+    console.log("DISCONNECT: " + socket.id + " reason=" + reason + " room=" + (code || "none"));
 
     if (code && rooms[code]) {
-      const room = rooms[code];
+      var room = rooms[code];
+      room.players = room.players.filter(function(p) { return p.id !== socket.id; });
 
-      // Vertel andere speler
-      room.players.forEach((p) => {
-        if (p.id !== socket.id) {
-          io.to(p.id).emit("opponentLeft");
-        }
-      });
+      if (room.players.length < 2) room.started = false;
 
-      // Cleanup na 2 minuten
-      setTimeout(() => {
-        if (rooms[code]) {
-          const allGone = room.players.every(
-            (p) => !io.sockets.sockets.get(p.id)
-          );
-          if (allGone) {
+      for (var i = 0; i < room.players.length; i++) {
+        var s = io.sockets.sockets.get(room.players[i].id);
+        if (s) s.playerIndex = i;
+        io.to(room.players[i].id).emit("opponentLeft");
+      }
+
+      if (room.players.length === 0) {
+        setTimeout(function() {
+          if (rooms[code] && rooms[code].players.length === 0) {
             delete rooms[code];
-            console.log(`🗑️ Room ${code} deleted (all disconnected)`);
+            console.log("Room " + code + " deleted");
           }
-        }
-      }, 120000);
+        }, 30000);
+      }
     }
   });
 });
 
-// ======= CLEANUP =======
-
-// Verwijder oude kamers elke 5 minuten
-setInterval(() => {
-  const now = Date.now();
-  let cleaned = 0;
-  Object.keys(rooms).forEach((code) => {
-    // Verwijder kamers ouder dan 2 uur
-    if (now - rooms[code].createdAt > 7200000) {
+setInterval(function() {
+  var now = Date.now();
+  Object.keys(rooms).forEach(function(code) {
+    cleanRoom(rooms[code]);
+    if (rooms[code].players.length === 0 || now - rooms[code].createdAt > 7200000) {
       delete rooms[code];
-      cleaned++;
     }
   });
-  if (cleaned > 0) {
-    console.log(`🧹 Cleaned ${cleaned} old rooms. Active: ${Object.keys(rooms).length}`);
-  }
-}, 300000);
+}, 60000);
 
-// ======= START =======
-
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`🎲 Domino server running on port ${PORT}`);
-  console.log(`🌐 Health check: http://localhost:${PORT}/`);
+var PORT = process.env.PORT || 3001;
+server.listen(PORT, "0.0.0.0", function() {
+  console.log("Domino server v4 on port " + PORT);
 });
