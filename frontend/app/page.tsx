@@ -29,8 +29,8 @@ function allT(): Tile[] { const t: Tile[] = []; for (let i = 0; i <= 6; i++) for
 function shuf(a: Tile[]): Tile[] { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; }
 
 const txt = {
-  NL: { stenen:"stenen",perSpeler:"per speler",tegenBot:"Tegen Bot",kamerMaken:"Kamer Maken",joinen:"Joinen",jij:"Jij",jouwBeurt:"Jouw beurt",spel:"Spel",chat:"Chat",legEerste:"Leg eerste steen!",wachtVriend:"Wacht op vriend...",pak:"Pak",pas:"Pas",pakUitPot:"Pak uit de pot!",geenBerichten:"Geen berichten",typ:"Typ...",stuurCode:"Stuur code!",vulCode:"Vul code in!",serverStart:"Server start op...",opnieuw:"Opnieuw",verloren:"VERLOREN!",gewonnen:"JIJ WINT!",gefeliciteerd:"Gefeliciteerd!",pastNiet:"Past niet!",gepast:"Gepast.",botPast:"Bot past.",botPakt:"Bot pakt.",jijBegint:"Jij begint!",kopieer:"Kopieer",welkom:"Welkom bij",login:"Inloggen",maakAcc:"Account Maken",gebruiker:"Gebruikersnaam",wachtwoord:"Wachtwoord",kiesAvatar:"Kies je avatar",heb:"Heb al een account?",geenAcc:"Nog geen account?",uitloggen:"Uitloggen",wins:"Gewonnen",losses:"Verloren",games:"Gespeeld",ofGast:"Of speel als gast →" },
-  KU: { stenen:"تابلۆ",perSpeler:"بۆ هەر یاریزان",tegenBot:"دژی بۆت",kamerMaken:"دروستکردنی ژوور",joinen:"چوونە ناو",jij:"تۆ",jouwBeurt:"نۆبەی تۆ",spel:"یاری",chat:"چات",legEerste:"یەکەم تابلۆ دابنێ!",wachtVriend:"چاوەڕوانی هاوڕێ...",pak:"هەڵگرتن",pas:"تێپەڕاندن",pakUitPot:"لە پۆت هەڵبگرە!",geenBerichten:"هیچ پەیامێک نییە",typ:"بنووسە...",stuurCode:"کۆدەکە بنێرە!",vulCode:"کۆدەکە بنووسە!",serverStart:"سێرڤەر دەست پێ دەکات...",opnieuw:"دووبارە",verloren:"تۆ دۆڕاویت!",gewonnen:"تۆ بردیت!",gefeliciteerd:"پیرۆزە!",pastNiet:"ناگونجێت!",gepast:"تێپەڕێنرا.",botPast:"بۆت تێپەڕاند.",botPakt:"بۆت هەڵیگرت.",jijBegint:"تۆ دەست پێ دەکەیت!",kopieer:"کۆپی",welkom:"بەخێربێیت بۆ",login:"چوونەژوورەوە",maakAcc:"هەژمار دروستکردن",gebruiker:"ناوی بەکارهێنەر",wachtwoord:"وشەی نهێنی",kiesAvatar:"ئاواتارەکەت هەڵبژێرە",heb:"هەژمارت هەیە؟",geenAcc:"هەژمارت نییە؟",uitloggen:"دەرچوون",wins:"بردن",losses:"دۆڕان",games:"یاری",ofGast:"یان وەک میوان بچۆ →" },
+  NL: { stenen:"stenen",perSpeler:"per speler",tegenBot:"Tegen Bot",kamerMaken:"Kamer Maken",joinen:"Joinen",jij:"Jij",jouwBeurt:"Jouw beurt",spel:"Spel",chat:"Chat",legEerste:"Leg eerste steen!",wachtVriend:"Wacht op vriend...",pak:"Pak",pas:"Pas",pakUitPot:"Pak uit de pot!",geenBerichten:"Geen berichten",typ:"Typ...",stuurCode:"Stuur code!",vulCode:"Vul code in!",serverStart:"Server start op...",opnieuw:"Opnieuw",verloren:"VERLOREN!",gewonnen:"JIJ WINT!",gefeliciteerd:"Gefeliciteerd!",pastNiet:"Past niet!",gepast:"Gepast.",botPast:"Bot past.",botPakt:"Bot pakt.",jijBegint:"Jij begint!",kopieer:"Kopieer",welkom:"Welkom bij",login:"Inloggen",maakAcc:"Account Maken",gebruiker:"Gebruikersnaam",wachtwoord:"Wachtwoord",kiesAvatar:"Kies je avatar",heb:"Heb al een account?",geenAcc:"Nog geen account?",uitloggen:"Uitloggen",wins:"Gewonnen",losses:"Verloren",games:"Gespeeld",ofGast:"Of speel als gast →",scorebord:"Scorebord",rang:"Rang",speler:"Speler",winrate:"Win%",geenSpelers:"Nog geen spelers",profiel:"Profiel",terug:"Terug",lidSinds:"Lid sinds",jouwStats:"Jouw Statistieken",alleSpelers:"Alle Spelers" },
+  KU: { stenen:"تابلۆ",perSpeler:"بۆ هەر یاریزان",tegenBot:"دژی بۆت",kamerMaken:"دروستکردنی ژوور",joinen:"چوونە ناو",jij:"تۆ",jouwBeurt:"نۆبەی تۆ",spel:"یاری",chat:"چات",legEerste:"یەکەم تابلۆ دابنێ!",wachtVriend:"چاوەڕوانی هاوڕێ...",pak:"هەڵگرتن",pas:"تێپەڕاندن",pakUitPot:"لە پۆت هەڵبگرە!",geenBerichten:"هیچ پەیامێک نییە",typ:"بنووسە...",stuurCode:"کۆدەکە بنێرە!",vulCode:"کۆدەکە بنووسە!",serverStart:"سێرڤەر دەست پێ دەکات...",opnieuw:"دووبارە",verloren:"تۆ دۆڕاویت!",gewonnen:"تۆ بردیت!",gefeliciteerd:"پیرۆزە!",pastNiet:"ناگونجێت!",gepast:"تێپەڕێنرا.",botPast:"بۆت تێپەڕاند.",botPakt:"بۆت هەڵیگرت.",jijBegint:"تۆ دەست پێ دەکەیت!",kopieer:"کۆپی",welkom:"بەخێربێیت بۆ",login:"چوونەژوورەوە",maakAcc:"هەژمار دروستکردن",gebruiker:"ناوی بەکارهێنەر",wachtwoord:"وشەی نهێنی",kiesAvatar:"ئاواتارەکەت هەڵبژێرە",heb:"هەژمارت هەیە؟",geenAcc:"هەژمارت نییە؟",uitloggen:"دەرچوون",wins:"بردن",losses:"دۆڕان",games:"یاری",ofGast:"یان وەک میوان بچۆ →",scorebord:"تەختەی ئەنجام",rang:"پلە",speler:"یاریزان",winrate:"ڕێژەی بردن",geenSpelers:"هیچ یاریزانێک نییە",profiel:"پرۆفایل",terug:"گەڕانەوە",lidSinds:"ئەندام لە",jouwStats:"ئامارەکانت",alleSpelers:"هەموو یاریزانەکان" },
 };
 
 const D: number[][] = [[],[4],[2,6],[2,4,6],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
@@ -44,14 +44,146 @@ function playWinSound(){try{const c=new(window.AudioContext||(window as any).web
 function Confetti(){const[p]=useState(()=>Array.from({length:50},(_,i)=>({id:i,x:Math.random()*100,delay:Math.random()*2,dur:2+Math.random()*3,size:6+Math.random()*8,color:["#FF0000","#FFD700","#00FF00","#00BFFF","#FF69B4","#FFA500","#9400D3"][Math.floor(Math.random()*7)],round:Math.random()>0.5})));return(<div className="fixed inset-0 z-[100] pointer-events-none overflow-hidden">{p.map(x=><div key={x.id} className="absolute" style={{left:`${x.x}%`,top:"-20px",width:`${x.size}px`,height:`${x.size}px`,backgroundColor:x.color,borderRadius:x.round?"50%":"2px",animation:`cfall ${x.dur}s ${x.delay}s linear forwards`}}/>)}<style jsx>{`@keyframes cfall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}`}</style></div>)}
 function LaughOverlay({onClose,lang}:{onClose:()=>void;lang:"KU"|"NL"}){const[show,setShow]=useState(true);const L=["🤣","😂","😆"];const[ci,setCi]=useState(0);useEffect(()=>{playLaughSound();const ei=setInterval(()=>setCi(p=>(p+1)%L.length),400);const tm=setTimeout(()=>{setShow(false);setTimeout(onClose,500)},4000);return()=>{clearInterval(ei);clearTimeout(tm)}},[onClose]);return(<div className={`fixed inset-0 z-[99] flex items-center justify-center transition-opacity duration-500 ${show?"opacity-100":"opacity-0"}`}><div className="absolute inset-0 bg-black/60 backdrop-blur-sm"/><div className="relative z-10 flex flex-col items-center"><div style={{animation:"blgh .8s ease-in-out infinite"}} className="text-[120px] sm:text-[180px] leading-none select-none">{L[ci]}</div><div className="mt-4 text-white font-black text-2xl sm:text-4xl animate-pulse">{lang==="KU"?"تۆ دۆڕاویت! 😂":"VERLOREN! 😂"}</div></div><style jsx>{`@keyframes blgh{0%,100%{transform:scale(1)}15%{transform:scale(1.3) rotate(-10deg)}45%{transform:scale(1.2) rotate(5deg)}}`}</style></div>)}
 function WinOverlay({onClose,lang}:{onClose:()=>void;lang:"KU"|"NL"}){const[show,setShow]=useState(true);useEffect(()=>{playWinSound();const tm=setTimeout(()=>{setShow(false);setTimeout(onClose,500)},4000);return()=>clearTimeout(tm)},[onClose]);return(<div className={`fixed inset-0 z-[99] flex items-center justify-center transition-opacity duration-500 ${show?"opacity-100":"opacity-0"}`}><div className="absolute inset-0 bg-black/50 backdrop-blur-sm"/><Confetti/><div className="relative z-10 flex flex-col items-center"><div className="text-[100px] sm:text-[150px] leading-none animate-bounce select-none">🏆</div><div className="mt-2 text-3xl animate-bounce">👑</div><div className="mt-4 text-yellow-400 font-black text-3xl sm:text-5xl animate-pulse">{lang==="KU"?"تۆ بردیت!":"JIJ WINT!"}</div></div></div>)}
+function DominoChain({board,lastIdx}:{board:BE[];lastIdx:number}){return(<div className="flex flex-wrap items-center justify-center gap-[2px] p-2">{board.map((entry,idx)=>{const tile=entry.tile;const d:Tile=entry.flipped?[tile[1],tile[0]]:tile;const isDouble=tile[0]===tile[1];const isNew=idx===lastIdx;if(isDouble){return(<div key={idx} className={`flex flex-col items-center justify-around rounded-md border-2 border-[#C4B998] shadow-lg flex-shrink-0 ${isNew?"animate-pop":""}`} style={{width:28,height:52,background:"linear-gradient(160deg, #FFFEF5, #F0E6D0)"}}><Dots v={d[0]} sz={11}/><div className="w-[70%] h-px bg-[#C4B998]"/><Dots v={d[1]} sz={11}/></div>)}return(<div key={idx} className={`flex flex-row items-center justify-around rounded-md border-2 border-[#C4B998] shadow-lg flex-shrink-0 ${isNew?"animate-pop":""}`} style={{width:52,height:28,background:"linear-gradient(160deg, #FFFEF5, #F0E6D0)"}}><Dots v={d[0]} sz={11}/><div className="h-[70%] w-px bg-[#C4B998]"/><Dots v={d[1]} sz={11}/></div>)})}<style jsx>{`@keyframes pop{0%{transform:scale(0) rotate(-20deg);opacity:0}60%{transform:scale(1.2) rotate(5deg)}100%{transform:scale(1) rotate(0);opacity:1}}.animate-pop{animation:pop 0.4s ease-out}`}</style></div>)}
 
-function DominoChain({board,lastIdx}:{board:BE[];lastIdx:number}){
-  return(<div className="flex flex-wrap items-center justify-center gap-[2px] p-2">{board.map((entry,idx)=>{const tile=entry.tile;const d:Tile=entry.flipped?[tile[1],tile[0]]:tile;const isDouble=tile[0]===tile[1];const isNew=idx===lastIdx;
-  if(isDouble){return(<div key={idx} className={`flex flex-col items-center justify-around rounded-md border-2 border-[#C4B998] shadow-lg flex-shrink-0 ${isNew?"animate-pop":""}`} style={{width:28,height:52,background:"linear-gradient(160deg, #FFFEF5, #F0E6D0)"}}><Dots v={d[0]} sz={11}/><div className="w-[70%] h-px bg-[#C4B998]"/><Dots v={d[1]} sz={11}/></div>)}
-  return(<div key={idx} className={`flex flex-row items-center justify-around rounded-md border-2 border-[#C4B998] shadow-lg flex-shrink-0 ${isNew?"animate-pop":""}`} style={{width:52,height:28,background:"linear-gradient(160deg, #FFFEF5, #F0E6D0)"}}><Dots v={d[0]} sz={11}/><div className="h-[70%] w-px bg-[#C4B998]"/><Dots v={d[1]} sz={11}/></div>)})}<style jsx>{`@keyframes pop{0%{transform:scale(0) rotate(-20deg);opacity:0}60%{transform:scale(1.2) rotate(5deg)}100%{transform:scale(1) rotate(0);opacity:1}}.animate-pop{animation:pop 0.4s ease-out}`}</style></div>)}
+// ✅ Get all players from localStorage
+function getAllPlayers(): Account[] {
+  try {
+    const accs: Record<string, { account: Account }> = JSON.parse(localStorage.getItem("domino_accounts") || "{}");
+    return Object.values(accs).map(a => a.account).sort((a, b) => b.wins - a.wins);
+  } catch { return []; }
+}
+
+// ✅ Scorebord Component
+function Scorebord({ lang, onBack, currentUser }: { lang: "KU" | "NL"; onBack: () => void; currentUser: string }) {
+  const t = txt[lang];
+  const players = getAllPlayers();
+  const rankEmojis = ["🥇", "🥈", "🥉"];
+
+  return (
+    <div className="w-full max-w-[400px] px-4 z-10 animate-fadeIn">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={onBack} className="text-white/60 bg-white/10 px-3 py-1.5 rounded-xl text-xs font-bold active:bg-white/20">← {t.terug}</button>
+        <h2 className="text-white font-black text-lg">🏆 {t.scorebord}</h2>
+        <div className="w-16" />
+      </div>
+
+      {/* Stats van jezelf */}
+      {(() => {
+        const me = players.find(p => p.username === currentUser);
+        const myRank = players.findIndex(p => p.username === currentUser) + 1;
+        if (!me) return null;
+        return (
+          <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-2xl p-4 mb-4 backdrop-blur-sm">
+            <div className="text-white/50 text-[10px] font-bold mb-2">📊 {t.jouwStats}</div>
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-3xl shadow-lg border-2 border-yellow-300">{me.avatar}</div>
+              <div className="flex-1">
+                <div className="text-white font-black text-base">{me.username}</div>
+                <div className="text-white/40 text-[10px]">{t.rang}: #{myRank}</div>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div><div className="text-green-400 font-black text-lg">{me.wins}</div><div className="text-white/30 text-[8px]">{t.wins}</div></div>
+                <div><div className="text-red-400 font-black text-lg">{me.losses}</div><div className="text-white/30 text-[8px]">{t.losses}</div></div>
+                <div><div className="text-blue-400 font-black text-lg">{me.games}</div><div className="text-white/30 text-[8px]">{t.games}</div></div>
+              </div>
+            </div>
+            {/* Win rate bar */}
+            <div className="mt-3">
+              <div className="flex justify-between text-[9px] text-white/40 mb-1">
+                <span>{t.winrate}</span>
+                <span>{me.games > 0 ? Math.round((me.wins / me.games) * 100) : 0}%</span>
+              </div>
+              <div className="h-2 bg-black/30 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-green-500 to-yellow-500 rounded-full transition-all duration-500"
+                  style={{ width: `${me.games > 0 ? (me.wins / me.games) * 100 : 0}%` }} />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Alle spelers lijst */}
+      <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
+        <div className="bg-white/5 px-4 py-2 flex items-center justify-between">
+          <span className="text-white/50 text-[10px] font-bold">👥 {t.alleSpelers}</span>
+          <span className="text-white/30 text-[10px]">{players.length} {t.speler}</span>
+        </div>
+
+        {/* Header row */}
+        <div className="grid grid-cols-[40px_1fr_50px_50px_50px_55px] gap-1 px-3 py-1.5 text-[9px] text-white/30 font-bold border-b border-white/5">
+          <div>{t.rang}</div>
+          <div>{t.speler}</div>
+          <div className="text-center">🏆</div>
+          <div className="text-center">💀</div>
+          <div className="text-center">🎮</div>
+          <div className="text-center">{t.winrate}</div>
+        </div>
+
+        {/* Player rows */}
+        <div className="max-h-[300px] overflow-y-auto">
+          {players.length === 0 && (
+            <div className="text-white/20 text-xs text-center py-8">{t.geenSpelers}</div>
+          )}
+          {players.map((p, idx) => {
+            const isMe = p.username === currentUser;
+            const wr = p.games > 0 ? Math.round((p.wins / p.games) * 100) : 0;
+            return (
+              <div key={p.username}
+                className={`grid grid-cols-[40px_1fr_50px_50px_50px_55px] gap-1 px-3 py-2 items-center transition-colors ${
+                  isMe ? "bg-yellow-500/10 border-l-2 border-yellow-500" : idx % 2 === 0 ? "bg-white/[0.02]" : ""
+                }`}>
+                {/* Rang */}
+                <div className="text-center">
+                  {idx < 3 ? (
+                    <span className="text-lg">{rankEmojis[idx]}</span>
+                  ) : (
+                    <span className="text-white/40 text-xs font-bold">#{idx + 1}</span>
+                  )}
+                </div>
+
+                {/* Speler */}
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0 ${
+                    idx === 0 ? "bg-gradient-to-br from-yellow-400 to-yellow-600 shadow-lg shadow-yellow-500/30" :
+                    idx === 1 ? "bg-gradient-to-br from-gray-300 to-gray-500" :
+                    idx === 2 ? "bg-gradient-to-br from-orange-400 to-orange-700" :
+                    "bg-white/10"
+                  }`}>{p.avatar}</div>
+                  <div className="min-w-0">
+                    <div className={`font-bold text-[11px] truncate ${isMe ? "text-yellow-400" : "text-white"}`}>
+                      {p.username} {isMe && "⭐"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="text-center text-green-400 font-bold text-xs">{p.wins}</div>
+                <div className="text-center text-red-400 font-bold text-xs">{p.losses}</div>
+                <div className="text-center text-white/40 font-bold text-xs">{p.games}</div>
+
+                {/* Win rate */}
+                <div className="text-center">
+                  <span className={`font-black text-xs ${wr >= 60 ? "text-green-400" : wr >= 40 ? "text-yellow-400" : "text-red-400"}`}>
+                    {wr}%
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeIn { animation: fadeIn 0.4s ease-out; }
+      `}</style>
+    </div>
+  );
+}
 
 export default function Home() {
-  // ✅ STAP 1: Account is VERPLICHT - begin op login scherm
   const [account, setAccount] = useState<Account | null>(null);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "create">("create");
@@ -59,10 +191,11 @@ export default function Home() {
   const [authPass, setAuthPass] = useState("");
   const [authErr, setAuthErr] = useState("");
   const [authAvatar, setAuthAvatar] = useState("😎");
-  const [authStep, setAuthStep] = useState(1); // 1=avatar, 2=credentials
+  const [authStep, setAuthStep] = useState(1);
   const avatars = ["😎","🤖","👑","🔥","💀","🐐","☀️","🦁","🎲","💪","😈","🥶","🧔","⚡","🌟","🎯"];
 
-  const [view, setView] = useState<"menu" | "game">("menu");
+  // ✅ view kan nu ook "scores" zijn
+  const [view, setView] = useState<"menu" | "game" | "scores">("menu");
   const [lang, setLang] = useState<"KU" | "NL">("NL");
   const t = txt[lang];
   const [mode, setMode] = useState<"bot" | "online">("bot");
@@ -97,44 +230,33 @@ export default function Home() {
   const sock = useRef<Socket | null>(null);
   const btm = useRef<HTMLDivElement>(null);
   const emos = ["🔥","👏","😂","👋","😍","😎","💯","😡","🥳","😭","🤣","💀","🎉","❤️","👑","🐐","😈","💪","🙏","☀️"];
-
   const playerName = account?.username || "Gast";
 
-  // ✅ Load saved account
-  useEffect(() => {
-    try { const s = localStorage.getItem("domino_account"); if (s) setAccount(JSON.parse(s)); } catch(e){}
-    setAuthLoaded(true);
-  }, []);
-
+  useEffect(() => { try { const s = localStorage.getItem("domino_account"); if (s) setAccount(JSON.parse(s)); } catch(e){} setAuthLoaded(true); }, []);
   const saveAccount = (a: Account) => { setAccount(a); localStorage.setItem("domino_account", JSON.stringify(a)); };
-
   const handleAuth = () => {
     if (authMode === "create" && authStep === 1) { setAuthStep(2); return; }
-    if (!authUser.trim()) { setAuthErr(lang === "KU" ? "ناوەکە بنووسە!" : "Vul een naam in!"); return; }
+    if (!authUser.trim()) { setAuthErr(lang === "KU" ? "ناوەکە بنووسە!" : "Vul naam in!"); return; }
     if (authUser.trim().length < 2) { setAuthErr(lang === "KU" ? "ناوەکە کورتە!" : "Naam te kort!"); return; }
-    if (!authPass.trim()) { setAuthErr(lang === "KU" ? "وشەی نهێنی بنووسە!" : "Vul wachtwoord in!"); return; }
+    if (!authPass.trim()) { setAuthErr(lang === "KU" ? "وشەی نهێنی!" : "Vul wachtwoord in!"); return; }
     if (authPass.trim().length < 3) { setAuthErr(lang === "KU" ? "وشەی نهێنی کورتە!" : "Wachtwoord te kort!"); return; }
-
     const accs: Record<string, any> = JSON.parse(localStorage.getItem("domino_accounts") || "{}");
     if (authMode === "create") {
-      if (accs[authUser.toLowerCase()]) { setAuthErr(lang === "KU" ? "ئەم ناوە بەکارهاتووە!" : "Naam al in gebruik!"); return; }
+      if (accs[authUser.toLowerCase()]) { setAuthErr(lang === "KU" ? "ئەم ناوە بەکارهاتووە!" : "Naam bezet!"); return; }
       const a: Account = { username: authUser.trim(), wins: 0, losses: 0, games: 0, avatar: authAvatar, created: Date.now() };
       accs[authUser.toLowerCase()] = { password: authPass, account: a };
-      localStorage.setItem("domino_accounts", JSON.stringify(accs));
-      saveAccount(a);
+      localStorage.setItem("domino_accounts", JSON.stringify(accs)); saveAccount(a);
     } else {
       const e = accs[authUser.toLowerCase()];
-      if (!e) { setAuthErr(lang === "KU" ? "هەژمار نەدۆزرایەوە!" : "Account niet gevonden!"); return; }
+      if (!e) { setAuthErr(lang === "KU" ? "هەژمار نەدۆزرایەوە!" : "Niet gevonden!"); return; }
       if (e.password !== authPass) { setAuthErr(lang === "KU" ? "وشەی نهێنی هەڵەیە!" : "Fout wachtwoord!"); return; }
       saveAccount(e.account);
     }
     setAuthErr("");
   };
-
   const updateStats = useCallback((won: boolean) => {
     setAccount(prev => { if (!prev) return prev; const u = { ...prev, games: prev.games + 1, wins: prev.wins + (won ? 1 : 0), losses: prev.losses + (won ? 0 : 1) }; localStorage.setItem("domino_account", JSON.stringify(u)); const accs: Record<string, any> = JSON.parse(localStorage.getItem("domino_accounts") || "{}"); if (accs[prev.username.toLowerCase()]) { accs[prev.username.toLowerCase()].account = u; localStorage.setItem("domino_accounts", JSON.stringify(accs)); } return u; });
   }, []);
-
   const logout = () => { setAccount(null); localStorage.removeItem("domino_account"); setAuthMode("create"); setAuthStep(1); setAuthUser(""); setAuthPass(""); setAuthErr(""); };
 
   useEffect(() => { btm.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
@@ -163,255 +285,128 @@ export default function Home() {
   const oRestart = () => { setShowLaugh(false); setShowWin(false); setLastIdx(-1); sock.current?.emit("restartGame"); };
 
   const startBot = () => { const a = shuf(allT()); setHand(a.slice(0,7)); setBotHand(a.slice(7,14)); setPile(a.slice(14)); setBoard([]); setMyTurn(true); setGameOver(null); setMode("bot"); setView("game"); setRoom("BOT"); setMsgs([]); setTab("board"); setOppName("Bot 🤖"); setOppCount(7); setPileCount(14); setShowLaugh(false); setShowWin(false); setLastIdx(-1); setTimeout(() => sys(`🤖 ${t.jijBegint}`), 100); };
-
   const bPlay = (tile: Tile, idx: number) => {
     if (!myTurn || gameOver) return;
-    if (!board.length) { const nb = [{ tile, flipped: false }]; setBoard(nb); setLastIdx(0); playTileSound(); const nh = hand.filter((_, i) => i !== idx); setHand(nh); sys(`🎯 ${playerName}: [${tile[0]}|${tile[1]}]`); if (!nh.length) { setGameOver("🎉"); trigEnd(true); return; } setMyTurn(false); setTimeout(() => botMove(nb), 800); return; }
-    const ends = getEnds(board); const side = canPlay(tile, board, ends);
-    if (!side) { sys(`❌ ${t.pastNiet}`); return; }
-    const fl = shouldFlip(tile, side, ends, false); const entry: BE = { tile, flipped: fl };
-    const nb = side === "left" ? [entry, ...board] : [...board, entry]; const ni = side === "left" ? 0 : nb.length - 1;
-    setBoard(nb); setLastIdx(ni); playTileSound(); const nh = hand.filter((_, i) => i !== idx); setHand(nh); sys(`🎯 ${playerName}: [${tile[0]}|${tile[1]}]`);
-    if (!nh.length) { setGameOver("🎉"); trigEnd(true); return; } setMyTurn(false); setTimeout(() => botMove(nb), 800);
+    if (!board.length) { const nb=[{tile,flipped:false}]; setBoard(nb); setLastIdx(0); playTileSound(); const nh=hand.filter((_,i)=>i!==idx); setHand(nh); sys(`🎯 ${playerName}: [${tile[0]}|${tile[1]}]`); if(!nh.length){setGameOver("🎉");trigEnd(true);return;} setMyTurn(false); setTimeout(()=>botMove(nb),800); return; }
+    const ends=getEnds(board); const side=canPlay(tile,board,ends);
+    if(!side){sys(`❌ ${t.pastNiet}`);return;}
+    const fl=shouldFlip(tile,side,ends,false); const entry:BE={tile,flipped:fl};
+    const nb=side==="left"?[entry,...board]:[...board,entry]; const ni=side==="left"?0:nb.length-1;
+    setBoard(nb);setLastIdx(ni);playTileSound();const nh=hand.filter((_,i)=>i!==idx);setHand(nh);sys(`🎯 ${playerName}: [${tile[0]}|${tile[1]}]`);
+    if(!nh.length){setGameOver("🎉");trigEnd(true);return;} setMyTurn(false);setTimeout(()=>botMove(nb),800);
   };
-
   const botMove = (cb: BE[]) => {
-    setBotHand(prev => {
-      const ends = getEnds(cb); let bi = -1, bs: "left" | "right" | null = null, bsc = -1;
-      for (let i = 0; i < prev.length; i++) { const s = canPlay(prev[i], cb, ends); if (s) { const sc = (prev[i][0] === prev[i][1] ? 10 : 0) + prev[i][0] + prev[i][1]; if (sc > bsc) { bsc = sc; bi = i; bs = s; } } }
-      if (bi === -1) { setPile(cp => { if (!cp.length) { sys(`🤖 ${t.botPast}`); setMyTurn(true); return cp; } const np = [...cp]; const dr = np.pop()!; setPileCount(np.length); const ds = canPlay(dr, cb, ends); if (ds) { const fl = shouldFlip(dr, ds, ends, false); const nb = ds === "left" ? [{ tile: dr, flipped: fl }, ...cb] : [...cb, { tile: dr, flipped: fl }]; setBoard(nb); setLastIdx(ds === "left" ? 0 : nb.length - 1); playTileSound(); sys(`🤖 [${dr[0]}|${dr[1]}]`); setOppCount(prev.length); if (!prev.length) { setGameOver("💀"); trigEnd(false); } setMyTurn(true); return np; } sys(`🤖 ${t.botPakt}`); setBotHand(bh => [...bh, dr]); setOppCount(prev.length + 1); setMyTurn(true); return np; }); return prev; }
-      const bt = prev[bi]; const fl = shouldFlip(bt, bs!, ends, cb.length === 0); const nb = bs === "left" ? [{ tile: bt, flipped: fl }, ...cb] : [...cb, { tile: bt, flipped: fl }];
-      setBoard(nb); setLastIdx(bs === "left" ? 0 : nb.length - 1); playTileSound(); sys(`🤖 [${bt[0]}|${bt[1]}]`);
-      const nbh = prev.filter((_, i) => i !== bi); setOppCount(nbh.length); if (!nbh.length) { setGameOver("💀"); trigEnd(false); } setMyTurn(true); return nbh;
-    });
+    setBotHand(prev=>{const ends=getEnds(cb);let bi=-1,bs:"left"|"right"|null=null,bsc=-1;
+    for(let i=0;i<prev.length;i++){const s=canPlay(prev[i],cb,ends);if(s){const sc=(prev[i][0]===prev[i][1]?10:0)+prev[i][0]+prev[i][1];if(sc>bsc){bsc=sc;bi=i;bs=s;}}}
+    if(bi===-1){setPile(cp=>{if(!cp.length){sys(`🤖 ${t.botPast}`);setMyTurn(true);return cp;}const np=[...cp];const dr=np.pop()!;setPileCount(np.length);const ds=canPlay(dr,cb,ends);if(ds){const fl=shouldFlip(dr,ds,ends,false);const nb=ds==="left"?[{tile:dr,flipped:fl},...cb]:[...cb,{tile:dr,flipped:fl}];setBoard(nb);setLastIdx(ds==="left"?0:nb.length-1);playTileSound();sys(`🤖 [${dr[0]}|${dr[1]}]`);setOppCount(prev.length);if(!prev.length){setGameOver("💀");trigEnd(false);}setMyTurn(true);return np;}sys(`🤖 ${t.botPakt}`);setBotHand(bh=>[...bh,dr]);setOppCount(prev.length+1);setMyTurn(true);return np;});return prev;}
+    const bt=prev[bi];const fl=shouldFlip(bt,bs!,ends,cb.length===0);const nb=bs==="left"?[{tile:bt,flipped:fl},...cb]:[...cb,{tile:bt,flipped:fl}];
+    setBoard(nb);setLastIdx(bs==="left"?0:nb.length-1);playTileSound();sys(`🤖 [${bt[0]}|${bt[1]}]`);const nbh=prev.filter((_,i)=>i!==bi);setOppCount(nbh.length);if(!nbh.length){setGameOver("💀");trigEnd(false);}setMyTurn(true);return nbh;});
   };
+  const bDraw = () => { if(!myTurn||gameOver||!pile.length) return; const np=[...pile];const d=np.pop()!;setPile(np);setHand(p=>[...p,d]);setPileCount(np.length);sys(`📦 [${d[0]}|${d[1]}]`); };
+  const bPass = () => { if(!myTurn||gameOver) return; setMyTurn(false);sys(`⏭️ ${t.gepast}`);setTimeout(()=>botMove(board),800); };
+  const bChat = (s: string) => { if(!s.trim()) return; setMsgs(p=>[...p,{sender:playerName,text:s.trim(),time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}]);setMsg("");setShowEm(false);setTimeout(()=>{const r=["😂","🔥","💯","💪","☀️","👏","👍","😈"];setMsgs(p=>[...p,{sender:"🤖",text:r[Math.floor(Math.random()*r.length)],time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}])},800+Math.random()*1200); };
 
-  const bDraw = () => { if (!myTurn || gameOver || !pile.length) return; const np = [...pile]; const d = np.pop()!; setPile(np); setHand(p => [...p, d]); setPileCount(np.length); sys(`📦 [${d[0]}|${d[1]}]`); };
-  const bPass = () => { if (!myTurn || gameOver) return; setMyTurn(false); sys(`⏭️ ${t.gepast}`); setTimeout(() => botMove(board), 800); };
-  const bChat = (s: string) => { if (!s.trim()) return; setMsgs(p => [...p, { sender: playerName, text: s.trim(), time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }]); setMsg(""); setShowEm(false); setTimeout(() => { const r = ["😂","🔥","💯","💪","☀️","👏","👍","😈"]; setMsgs(p => [...p, { sender: "🤖", text: r[Math.floor(Math.random() * r.length)], time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }]); }, 800 + Math.random() * 1200); };
+  const play = (ti:Tile,i:number) => mode==="bot"?bPlay(ti,i):oPlay(i);
+  const draw = () => mode==="bot"?bDraw():oDraw();
+  const pass = () => mode==="bot"?bPass():oPass();
+  const sendC = (s:string) => mode==="bot"?bChat(s):oChat(s);
+  const restart = () => mode==="bot"?startBot():oRestart();
+  const copy = () => {navigator.clipboard.writeText(room).catch(()=>{});setCopied(true);setTimeout(()=>setCopied(false),2000);};
+  const canAny = () => !board.length||hand.some(ti=>canPlay(ti,board,getEnds(board))!==null);
+  const cPile=mode==="bot"?pile.length:pileCount;
+  const cOpp=mode==="bot"?botHand.length:oppCount;
 
-  const play = (ti: Tile, i: number) => mode === "bot" ? bPlay(ti, i) : oPlay(i);
-  const draw = () => mode === "bot" ? bDraw() : oDraw();
-  const pass = () => mode === "bot" ? bPass() : oPass();
-  const sendC = (s: string) => mode === "bot" ? bChat(s) : oChat(s);
-  const restart = () => mode === "bot" ? startBot() : oRestart();
-  const copy = () => { navigator.clipboard.writeText(room).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 2000); };
-  const canAny = () => !board.length || hand.some(ti => canPlay(ti, board, getEnds(board)) !== null);
-  const cPile = mode === "bot" ? pile.length : pileCount;
-  const cOpp = mode === "bot" ? botHand.length : oppCount;
+  const HandTile=({v,hl,sm}:{v:Tile;hl?:boolean;sm?:boolean})=>(<div className={`${sm?"w-[32px] h-[64px]":"w-[40px] h-[80px]"} rounded-lg flex flex-col items-center justify-around py-0.5 shadow-lg cursor-pointer select-none border-2 transition-all duration-150 active:scale-90 ${hl?"border-yellow-400 ring-2 ring-yellow-400/60 shadow-yellow-500/40":"border-[#C4B998]"}`} style={{background:"linear-gradient(160deg, #FFFEF5, #F5EDDA)"}}><Dots v={v[0]} sz={sm?12:16}/><div className="w-[60%] h-px bg-[#C4B998]"/><Dots v={v[1]} sz={sm?12:16}/></div>);
+  const Back=()=>(<div className="w-[14px] h-[26px] sm:w-[18px] sm:h-[32px] rounded bg-gradient-to-br from-[#8B0000] to-[#5C0000] border border-[#3D0000] shadow flex items-center justify-center flex-shrink-0"><div className="w-[50%] h-[50%] border border-[#FFD700]/20 rounded-sm"/></div>);
 
-  const HandTile = ({v,hl,sm}:{v:Tile;hl?:boolean;sm?:boolean}) => (<div className={`${sm?"w-[32px] h-[64px]":"w-[40px] h-[80px]"} rounded-lg flex flex-col items-center justify-around py-0.5 shadow-lg cursor-pointer select-none border-2 transition-all duration-150 active:scale-90 ${hl?"border-yellow-400 ring-2 ring-yellow-400/60 shadow-yellow-500/40":"border-[#C4B998]"}`} style={{background:"linear-gradient(160deg, #FFFEF5, #F5EDDA)"}}><Dots v={v[0]} sz={sm?12:16}/><div className="w-[60%] h-px bg-[#C4B998]"/><Dots v={v[1]} sz={sm?12:16}/></div>);
-  const Back = () => (<div className="w-[14px] h-[26px] sm:w-[18px] sm:h-[32px] rounded bg-gradient-to-br from-[#8B0000] to-[#5C0000] border border-[#3D0000] shadow flex items-center justify-center flex-shrink-0"><div className="w-[50%] h-[50%] border border-[#FFD700]/20 rounded-sm"/></div>);
+  if (!authLoaded) return <div className="min-h-screen bg-black flex items-center justify-center"><Sun s={60} c="animate-spin opacity-50"/></div>;
 
-  // ✅ Wacht tot auth geladen is
-  if (!authLoaded) return <div className="min-h-screen bg-black flex items-center justify-center"><Sun s={60} c="animate-spin opacity-50" /></div>;
-
-  // ✅ LOGIN SCHERM - EERST voordat je iets kunt doen
+  // ✅ LOGIN SCHERM
   if (!account) {
     return (
       <main className="min-h-[100dvh] flex flex-col items-center justify-center relative overflow-hidden">
-        {/* Kurdistan vlag achtergrond */}
-        <div className="fixed inset-0 z-0">
-          <div className="absolute top-0 left-0 right-0 h-1/3 bg-[#ED2024]" />
-          <div className="absolute top-1/3 left-0 right-0 h-1/3 bg-white" />
-          <div className="absolute top-2/3 left-0 right-0 h-1/3 bg-[#21A038]" />
-          <div className="absolute inset-0 flex items-center justify-center"><Sun s={300} c="opacity-30" /></div>
-        </div>
-        <div className="fixed inset-0 z-[1] bg-black/40" />
-
-        {/* Taal switcher */}
-        <div className="fixed top-3 right-3 flex gap-1.5 z-50">
-          <button onClick={() => setLang("KU")} className={`px-3 py-1 rounded-full font-bold text-xs ${lang === "KU" ? "bg-yellow-500 text-black" : "bg-black/40 text-white/60"}`}>کوردی</button>
-          <button onClick={() => setLang("NL")} className={`px-3 py-1 rounded-full font-bold text-xs ${lang === "NL" ? "bg-yellow-500 text-black" : "bg-black/40 text-white/60"}`}>NL</button>
-        </div>
-
-        {/* ✅ Mooie login card */}
+        <div className="fixed inset-0 z-0"><div className="absolute top-0 left-0 right-0 h-1/3 bg-[#ED2024]"/><div className="absolute top-1/3 left-0 right-0 h-1/3 bg-white"/><div className="absolute top-2/3 left-0 right-0 h-1/3 bg-[#21A038]"/><div className="absolute inset-0 flex items-center justify-center"><Sun s={300} c="opacity-30"/></div></div>
+        <div className="fixed inset-0 z-[1] bg-black/40"/>
+        <div className="fixed top-3 right-3 flex gap-1.5 z-50"><button onClick={()=>setLang("KU")} className={`px-3 py-1 rounded-full font-bold text-xs ${lang==="KU"?"bg-yellow-500 text-black":"bg-black/40 text-white/60"}`}>کوردی</button><button onClick={()=>setLang("NL")} className={`px-3 py-1 rounded-full font-bold text-xs ${lang==="NL"?"bg-yellow-500 text-black":"bg-black/40 text-white/60"}`}>NL</button></div>
         <div className="relative z-10 w-full max-w-[360px] px-4">
-          {/* Logo */}
-          <div className="text-center mb-6">
-            <div className="relative inline-block">
-              <Sun s={80} c="mx-auto mb-2 opacity-90" />
-              <h1 className="text-5xl sm:text-6xl font-black text-white italic drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]">DOMINO</h1>
-            </div>
-            <p className="text-white/60 text-xs mt-2 font-medium">{t.welkom} Domino ☀️</p>
-          </div>
-
-          {/* Auth Card */}
+          <div className="text-center mb-6"><Sun s={80} c="mx-auto mb-2 opacity-90"/><h1 className="text-5xl sm:text-6xl font-black text-white italic drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]">DOMINO</h1><p className="text-white/60 text-xs mt-2">{t.welkom} Domino ☀️</p></div>
           <div className="bg-gradient-to-b from-white/10 to-white/5 backdrop-blur-xl rounded-3xl border border-white/20 shadow-2xl overflow-hidden">
-            
-            {/* Tabs */}
-            <div className="flex">
-              <button onClick={() => { setAuthMode("create"); setAuthStep(1); setAuthErr(""); }}
-                className={`flex-1 py-3.5 text-sm font-black transition-all ${authMode === "create" ? "bg-yellow-500 text-black" : "bg-transparent text-white/40"}`}>
-                ✨ {t.maakAcc}
-              </button>
-              <button onClick={() => { setAuthMode("login"); setAuthStep(2); setAuthErr(""); }}
-                className={`flex-1 py-3.5 text-sm font-black transition-all ${authMode === "login" ? "bg-yellow-500 text-black" : "bg-transparent text-white/40"}`}>
-                🔑 {t.login}
-              </button>
-            </div>
-
+            <div className="flex"><button onClick={()=>{setAuthMode("create");setAuthStep(1);setAuthErr("")}} className={`flex-1 py-3.5 text-sm font-black transition-all ${authMode==="create"?"bg-yellow-500 text-black":"bg-transparent text-white/40"}`}>✨ {t.maakAcc}</button><button onClick={()=>{setAuthMode("login");setAuthStep(2);setAuthErr("")}} className={`flex-1 py-3.5 text-sm font-black transition-all ${authMode==="login"?"bg-yellow-500 text-black":"bg-transparent text-white/40"}`}>🔑 {t.login}</button></div>
             <div className="p-5">
-              {/* ✅ STAP 1: Avatar kiezen (alleen bij account maken) */}
-              {authMode === "create" && authStep === 1 && (
-                <div className="animate-fadeIn">
-                  <p className="text-white/70 text-xs text-center mb-4 font-bold">{t.kiesAvatar}</p>
-                  
-                  {/* Geselecteerde avatar groot */}
-                  <div className="flex justify-center mb-4">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-5xl shadow-xl shadow-yellow-500/30 border-4 border-yellow-300">
-                      {authAvatar}
-                    </div>
-                  </div>
-
-                  {/* Avatar grid */}
-                  <div className="grid grid-cols-8 gap-2 mb-5">
-                    {avatars.map(a => (
-                      <button key={a} onClick={() => setAuthAvatar(a)}
-                        className={`text-2xl p-1.5 rounded-xl transition-all duration-200 ${authAvatar === a ? "bg-yellow-500 scale-110 shadow-lg shadow-yellow-500/30 ring-2 ring-yellow-300" : "bg-white/5 hover:bg-white/10 active:scale-95"}`}>
-                        {a}
-                      </button>
-                    ))}
-                  </div>
-
-                  <button onClick={() => setAuthStep(2)}
-                    className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-black py-3.5 rounded-2xl text-sm shadow-lg shadow-yellow-500/20 active:scale-[0.98] transition-transform">
-                    {lang === "KU" ? "دواتر →" : "Volgende →"}
-                  </button>
-                </div>
-              )}
-
-              {/* ✅ STAP 2: Naam + wachtwoord */}
-              {authStep === 2 && (
-                <div className="animate-fadeIn">
-                  {authMode === "create" && (
-                    <div className="flex justify-center mb-4">
-                      <button onClick={() => setAuthStep(1)} className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-3xl shadow-lg border-2 border-yellow-300 active:scale-95 transition-transform">
-                        {authAvatar}
-                      </button>
-                    </div>
-                  )}
-
-                  {authMode === "login" && (
-                    <div className="flex justify-center mb-4">
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-3xl shadow-lg border-2 border-blue-300">
-                        🔑
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Username */}
-                  <div className="relative mb-3">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">👤</div>
-                    <input type="text" placeholder={t.gebruiker} value={authUser} onChange={e => { setAuthUser(e.target.value); setAuthErr(""); }}
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white font-bold text-sm placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all" />
-                  </div>
-
-                  {/* Password */}
-                  <div className="relative mb-3">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">🔒</div>
-                    <input type="password" placeholder={t.wachtwoord} value={authPass} onChange={e => { setAuthPass(e.target.value); setAuthErr(""); }}
-                      onKeyDown={e => { if (e.key === "Enter") handleAuth(); }}
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white font-bold text-sm placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all" />
-                  </div>
-
-                  {/* Error */}
-                  {authErr && (
-                    <div className="bg-red-500/20 border border-red-500/30 rounded-xl px-3 py-2 mb-3 animate-shake">
-                      <p className="text-red-400 text-xs text-center font-bold">⚠️ {authErr}</p>
-                    </div>
-                  )}
-
-                  {/* Submit button */}
-                  <button onClick={handleAuth}
-                    className={`w-full font-black py-3.5 rounded-2xl text-sm shadow-lg active:scale-[0.98] transition-transform mb-3 ${
-                      authMode === "create"
-                        ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-black shadow-yellow-500/20"
-                        : "bg-gradient-to-r from-blue-500 to-blue-700 text-white shadow-blue-500/20"
-                    }`}>
-                    {authMode === "create" ? `✨ ${t.maakAcc}` : `🔑 ${t.login}`}
-                  </button>
-
-                  {/* Switch mode */}
-                  <button onClick={() => { setAuthMode(authMode === "login" ? "create" : "login"); setAuthStep(authMode === "login" ? 1 : 2); setAuthErr(""); }}
-                    className="w-full text-white/30 text-xs text-center py-1 hover:text-white/50 transition-colors">
-                    {authMode === "login" ? `${t.geenAcc} → ${t.maakAcc}` : `${t.heb} → ${t.login}`}
-                  </button>
-                </div>
-              )}
-
-              {/* Gast optie */}
-              <button onClick={() => saveAccount({ username: "Gast_" + Math.floor(Math.random() * 999), wins: 0, losses: 0, games: 0, avatar: "👤", created: Date.now() })}
-                className="w-full text-white/20 text-[10px] text-center py-2 mt-2 hover:text-white/40 transition-colors">
-                {t.ofGast}
-              </button>
+              {authMode==="create"&&authStep===1&&(<div className="animate-fadeIn"><p className="text-white/70 text-xs text-center mb-4 font-bold">{t.kiesAvatar}</p><div className="flex justify-center mb-4"><div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-5xl shadow-xl shadow-yellow-500/30 border-4 border-yellow-300">{authAvatar}</div></div><div className="grid grid-cols-8 gap-2 mb-5">{avatars.map(a=>(<button key={a} onClick={()=>setAuthAvatar(a)} className={`text-2xl p-1.5 rounded-xl transition-all ${authAvatar===a?"bg-yellow-500 scale-110 shadow-lg ring-2 ring-yellow-300":"bg-white/5 active:scale-95"}`}>{a}</button>))}</div><button onClick={()=>setAuthStep(2)} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-black py-3.5 rounded-2xl text-sm shadow-lg active:scale-[0.98]">{lang==="KU"?"دواتر →":"Volgende →"}</button></div>)}
+              {authStep===2&&(<div className="animate-fadeIn">{authMode==="create"&&<div className="flex justify-center mb-4"><button onClick={()=>setAuthStep(1)} className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-3xl shadow-lg border-2 border-yellow-300 active:scale-95">{authAvatar}</button></div>}{authMode==="login"&&<div className="flex justify-center mb-4"><div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-3xl shadow-lg border-2 border-blue-300">🔑</div></div>}<div className="relative mb-3"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">👤</div><input type="text" placeholder={t.gebruiker} value={authUser} onChange={e=>{setAuthUser(e.target.value);setAuthErr("")}} className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white font-bold text-sm placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-yellow-500/50"/></div><div className="relative mb-3"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">🔒</div><input type="password" placeholder={t.wachtwoord} value={authPass} onChange={e=>{setAuthPass(e.target.value);setAuthErr("")}} onKeyDown={e=>{if(e.key==="Enter")handleAuth()}} className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white font-bold text-sm placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-yellow-500/50"/></div>{authErr&&<div className="bg-red-500/20 border border-red-500/30 rounded-xl px-3 py-2 mb-3 animate-shake"><p className="text-red-400 text-xs text-center font-bold">⚠️ {authErr}</p></div>}<button onClick={handleAuth} className={`w-full font-black py-3.5 rounded-2xl text-sm shadow-lg active:scale-[0.98] mb-3 ${authMode==="create"?"bg-gradient-to-r from-yellow-500 to-orange-500 text-black":"bg-gradient-to-r from-blue-500 to-blue-700 text-white"}`}>{authMode==="create"?`✨ ${t.maakAcc}`:`🔑 ${t.login}`}</button><button onClick={()=>{setAuthMode(authMode==="login"?"create":"login");setAuthStep(authMode==="login"?1:2);setAuthErr("")}} className="w-full text-white/30 text-xs text-center py-1">{authMode==="login"?`${t.geenAcc}`:t.heb}</button></div>)}
+              <button onClick={()=>saveAccount({username:"Gast_"+Math.floor(Math.random()*999),wins:0,losses:0,games:0,avatar:"👤",created:Date.now()})} className="w-full text-white/20 text-[10px] text-center py-2 mt-2">{t.ofGast}</button>
             </div>
           </div>
-
           <p className="text-white/15 text-[10px] text-center mt-4">☀️ Biji Kurdistan</p>
         </div>
-
-        <style jsx>{`
-          @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-          .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
-          @keyframes shake { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-5px); } 40%,80% { transform: translateX(5px); } }
-          .animate-shake { animation: shake 0.4s ease-out; }
-        `}</style>
+        <style jsx>{`@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.animate-fadeIn{animation:fadeIn .3s ease-out}@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}.animate-shake{animation:shake .4s ease-out}`}</style>
       </main>
     );
   }
 
-  // ✅ INGELOGD - MENU & GAME
+  // ✅ INGELOGD
   return (
     <main className="min-h-[100dvh] flex flex-col items-center justify-center relative overflow-hidden">
-      {showLaugh && <LaughOverlay onClose={() => setShowLaugh(false)} lang={lang} />}
-      {showWin && <><Confetti /><WinOverlay onClose={() => setShowWin(false)} lang={lang} /></>}
+      {showLaugh&&<LaughOverlay onClose={()=>setShowLaugh(false)} lang={lang}/>}
+      {showWin&&<><Confetti/><WinOverlay onClose={()=>setShowWin(false)} lang={lang}/></>}
 
-      <div className="fixed inset-0 z-0"><div className="absolute top-0 left-0 right-0 h-1/3 bg-[#ED2024]" /><div className="absolute top-1/3 left-0 right-0 h-1/3 bg-white" /><div className="absolute top-2/3 left-0 right-0 h-1/3 bg-[#21A038]" /><div className="absolute inset-0 flex items-center justify-center"><Sun s={view === "menu" ? 250 : 400} c={view === "menu" ? "opacity-35" : "opacity-[0.12]"} /></div></div>
-      {view === "game" && <div className="fixed inset-0 z-[1] bg-black/40" />}
+      <div className="fixed inset-0 z-0"><div className="absolute top-0 left-0 right-0 h-1/3 bg-[#ED2024]"/><div className="absolute top-1/3 left-0 right-0 h-1/3 bg-white"/><div className="absolute top-2/3 left-0 right-0 h-1/3 bg-[#21A038]"/><div className="absolute inset-0 flex items-center justify-center"><Sun s={view==="menu"||view==="scores"?250:400} c={view==="menu"||view==="scores"?"opacity-35":"opacity-[0.12]"}/></div></div>
+      {view==="game"&&<div className="fixed inset-0 z-[1] bg-black/40"/>}
+      {view==="scores"&&<div className="fixed inset-0 z-[1] bg-black/50"/>}
 
       <div className="fixed top-2 right-2 flex gap-1 z-50">
-        {view === "menu" && <div className="flex items-center gap-1 bg-black/50 px-2 py-0.5 rounded-full mr-1"><div className={`w-2 h-2 rounded-full ${status === "on" ? "bg-green-400 animate-pulse" : "bg-red-500"}`} /></div>}
-        <button onClick={() => setLang("KU")} className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${lang === "KU" ? "bg-yellow-500 text-black" : "bg-black/40 text-white/60"}`}>کوردی</button>
-        <button onClick={() => setLang("NL")} className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${lang === "NL" ? "bg-yellow-500 text-black" : "bg-black/40 text-white/60"}`}>NL</button>
+        {(view==="menu"||view==="scores")&&<div className="flex items-center gap-1 bg-black/50 px-2 py-0.5 rounded-full mr-1"><div className={`w-2 h-2 rounded-full ${status==="on"?"bg-green-400 animate-pulse":"bg-red-500"}`}/></div>}
+        <button onClick={()=>setLang("KU")} className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${lang==="KU"?"bg-yellow-500 text-black":"bg-black/40 text-white/60"}`}>کوردی</button>
+        <button onClick={()=>setLang("NL")} className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${lang==="NL"?"bg-yellow-500 text-black":"bg-black/40 text-white/60"}`}>NL</button>
       </div>
 
-      {view === "menu" ? (
+      {/* ✅ SCOREBORD VIEW */}
+      {view === "scores" && (
+        <Scorebord lang={lang} onBack={() => setView("menu")} currentUser={account.username} />
+      )}
+
+      {/* MENU */}
+      {view === "menu" && (
         <div className="flex flex-col items-center z-10 w-full max-w-[300px] px-5 py-3">
-          <div className="relative mb-1"><Sun s={60} c="absolute -top-1 left-1/2 -translate-x-1/2 opacity-80" /><h1 className="text-[40px] font-black text-white italic drop-shadow-[0_3px_8px_rgba(0,0,0,0.6)] relative z-10">DOMINO</h1></div>
+          <div className="relative mb-1"><Sun s={60} c="absolute -top-1 left-1/2 -translate-x-1/2 opacity-80"/><h1 className="text-[40px] font-black text-white italic drop-shadow-[0_3px_8px_rgba(0,0,0,0.6)] relative z-10">DOMINO</h1></div>
           <p className="text-white/80 text-[10px] mb-3 font-bold bg-black/30 px-3 py-1 rounded-full">☀️ 28 {t.stenen} • 7 {t.perSpeler}</p>
 
-          {/* ✅ Account card */}
+          {/* Account card */}
           <div className="w-full bg-gradient-to-r from-white/10 to-white/5 backdrop-blur-sm rounded-2xl p-3 mb-3 border border-white/10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-xl shadow-lg border-2 border-yellow-300/50">{account.avatar}</div>
                 <div>
                   <div className="text-white font-black text-sm">{account.username}</div>
-                  <div className="flex gap-2 text-[9px]">
-                    <span className="text-green-400">🏆 {account.wins}</span>
-                    <span className="text-red-400">💀 {account.losses}</span>
-                    <span className="text-white/30">🎮 {account.games}</span>
-                  </div>
+                  <div className="flex gap-2 text-[9px]"><span className="text-green-400">🏆{account.wins}</span><span className="text-red-400">💀{account.losses}</span><span className="text-white/30">🎮{account.games}</span></div>
                 </div>
               </div>
-              <button onClick={logout} className="text-white/20 text-[9px] bg-white/5 px-2 py-1 rounded-lg hover:bg-white/10 active:scale-95 transition-all">{t.uitloggen}</button>
+              <button onClick={logout} className="text-white/20 text-[9px] bg-white/5 px-2 py-1 rounded-lg">{t.uitloggen}</button>
             </div>
           </div>
+
+          {/* ✅ Scorebord knop */}
+          <button onClick={() => setView("scores")} className="w-full bg-gradient-to-b from-yellow-500 to-yellow-700 text-black font-black py-3 rounded-2xl border-b-4 border-yellow-900 mb-2 active:translate-y-0.5 active:border-b-2 shadow-xl text-sm">
+            🏆 {t.scorebord}
+          </button>
 
           <button onClick={startBot} className="w-full bg-gradient-to-b from-blue-500 to-blue-700 text-white font-black py-3 rounded-2xl border-b-4 border-blue-900 mb-2 active:translate-y-0.5 active:border-b-2 shadow-xl text-sm">🤖 {t.tegenBot}</button>
           <button onClick={oCreate} className="w-full bg-gradient-to-b from-green-500 to-green-700 text-white font-black py-3 rounded-2xl border-b-4 border-green-900 mb-2 active:translate-y-0.5 active:border-b-2 shadow-xl text-sm">🏠 {t.kamerMaken}</button>
           <div className="bg-gradient-to-b from-purple-500 to-purple-700 p-3 rounded-2xl border-b-4 border-purple-900 w-full shadow-xl">
-            <input type="text" placeholder="CODE..." value={input} onChange={e => setInput(e.target.value.toUpperCase())} className="w-full p-2.5 rounded-xl text-center font-bold mb-1.5 uppercase text-black bg-white border-2 border-purple-300 text-lg tracking-[0.3em]" maxLength={5} />
-            {joinErr && <p className="text-white text-[10px] text-center mb-1.5 font-bold bg-red-500/30 rounded-lg py-1">⚠️ {joinErr}</p>}
+            <input type="text" placeholder="CODE..." value={input} onChange={e=>setInput(e.target.value.toUpperCase())} className="w-full p-2.5 rounded-xl text-center font-bold mb-1.5 uppercase text-black bg-white border-2 border-purple-300 text-lg tracking-[0.3em]" maxLength={5}/>
+            {joinErr&&<p className="text-white text-[10px] text-center mb-1.5 font-bold bg-red-500/30 rounded-lg py-1">⚠️ {joinErr}</p>}
             <button onClick={oJoin} className="w-full text-white font-black py-2.5 bg-purple-900/50 rounded-xl active:bg-purple-800 text-sm">🚪 {t.joinen}</button>
           </div>
-          {status !== "on" && (<div className="mt-2 bg-yellow-500/20 rounded-xl p-2 w-full"><p className="text-yellow-300 text-[10px] text-center font-bold">⏳ {t.serverStart}</p><button onClick={() => fetch(SOCKET_URL).catch(() => {})} className="w-full mt-1 text-yellow-400 text-[10px] font-bold bg-yellow-500/10 rounded py-1">🔄</button></div>)}
+          {status!=="on"&&(<div className="mt-2 bg-yellow-500/20 rounded-xl p-2 w-full"><p className="text-yellow-300 text-[10px] text-center font-bold">⏳ {t.serverStart}</p><button onClick={()=>fetch(SOCKET_URL).catch(()=>{})} className="w-full mt-1 text-yellow-400 text-[10px] font-bold bg-yellow-500/10 rounded py-1">🔄</button></div>)}
           <p className="text-white/20 text-[10px] mt-2">☀️ Biji Kurdistan</p>
         </div>
-      ) : (
+      )}
+
+      {/* GAME */}
+      {view === "game" && (
         <div className="w-full h-[100dvh] flex flex-col z-10">
-          <div className="flex items-center justify-between px-2 py-1.5 flex-shrink-0 relative overflow-hidden"><div className="absolute inset-0" style={{background:"linear-gradient(90deg, #ED2024 0%, #ED2024 30%, rgba(255,255,255,0.2) 30%, rgba(255,255,255,0.2) 70%, #21A038 70%)"}}/><div className="absolute inset-0 bg-black/30"/><button onClick={() => {setView("menu");setWaiting(false);setShowLaugh(false);setShowWin(false)}} className="text-white text-lg px-1 relative z-10">↩</button><div className="flex items-center gap-1.5 relative z-10"><span className="bg-yellow-500 text-black px-2.5 py-0.5 rounded-lg font-black text-[11px]">{room}</span>{room!=="BOT"&&<button onClick={copy} className="text-white text-[10px] bg-black/30 px-2 py-0.5 rounded-lg font-bold">{copied?"✅":"📋"}</button>}</div><div className={`px-2.5 py-1 rounded-lg text-[10px] font-black shadow relative z-10 ${myTurn?"bg-green-500 text-black":"bg-red-500 text-white"}`}>{myTurn?`🟢 ${t.jouwBeurt}`:`🔴 ${oppName}`}</div></div>
+          <div className="flex items-center justify-between px-2 py-1.5 flex-shrink-0 relative overflow-hidden"><div className="absolute inset-0" style={{background:"linear-gradient(90deg, #ED2024 0%, #ED2024 30%, rgba(255,255,255,0.2) 30%, rgba(255,255,255,0.2) 70%, #21A038 70%)"}}/><div className="absolute inset-0 bg-black/30"/><button onClick={()=>{setView("menu");setWaiting(false);setShowLaugh(false);setShowWin(false)}} className="text-white text-lg px-1 relative z-10">↩</button><div className="flex items-center gap-1.5 relative z-10"><span className="bg-yellow-500 text-black px-2.5 py-0.5 rounded-lg font-black text-[11px]">{room}</span>{room!=="BOT"&&<button onClick={copy} className="text-white text-[10px] bg-black/30 px-2 py-0.5 rounded-lg font-bold">{copied?"✅":"📋"}</button>}</div><div className={`px-2.5 py-1 rounded-lg text-[10px] font-black shadow relative z-10 ${myTurn?"bg-green-500 text-black":"bg-red-500 text-white"}`}>{myTurn?`🟢 ${t.jouwBeurt}`:`🔴 ${oppName}`}</div></div>
           {waiting&&(<div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-black text-center py-2.5 text-[11px] flex-shrink-0">⏳ {t.stuurCode} <span className="bg-black text-white px-3 py-1 rounded-lg font-mono mx-2 text-base tracking-widest">{room}</span><button onClick={copy} className="bg-white/70 px-2 py-0.5 rounded text-[10px] font-bold">{copied?"✅":"📋"}</button></div>)}
           {gameOver&&(<div className={`text-black font-black text-center py-3 text-base flex-shrink-0 ${iWon?"bg-gradient-to-r from-yellow-400 to-orange-500":"bg-gradient-to-r from-red-500 to-red-700 text-white"}`}>{iWon?`🏆 ${t.gewonnen}`:`💀 ${t.verloren} 🤣`}<button onClick={restart} className="ml-3 bg-black text-white px-4 py-1.5 rounded-xl text-xs font-bold">🔄 {t.opnieuw}</button></div>)}
 
@@ -420,17 +415,9 @@ export default function Home() {
           <div className="flex-1 flex min-h-0">
             <div className={`flex-1 flex flex-col min-h-0 ${tab==="chat"?"hidden sm:flex":"flex"}`}>
               <div className="bg-black/50 px-2 py-1.5 flex items-center justify-between flex-shrink-0"><div className="flex items-center gap-1.5"><div className="w-7 h-7 rounded-full bg-red-900/80 flex items-center justify-center text-xs">👤</div><div><div className="text-white font-bold text-[11px]">{oppName}</div><div className="text-white/30 text-[9px]">{cOpp} {t.stenen}</div></div></div><div className="flex gap-px overflow-hidden max-w-[55%]">{[...Array(Math.min(cOpp,14))].map((_,i)=><Back key={i}/>)}</div></div>
-
-              <div className="flex-1 relative overflow-auto">
-                <div className="absolute inset-0"><div className="absolute top-0 left-0 right-0 h-1/3 bg-[#ED2024]/20"/><div className="absolute top-1/3 left-0 right-0 h-1/3 bg-white/10"/><div className="absolute top-2/3 left-0 right-0 h-1/3 bg-[#21A038]/20"/></div>
-                <div className="absolute inset-0" style={{background:"radial-gradient(ellipse at center, rgba(30,100,45,0.75) 0%, rgba(20,70,30,0.85) 60%, rgba(10,50,15,0.92) 100%)"}}/><div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Sun s={250} c="opacity-[0.08]"/></div>
-                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#ED2024] via-[#FFD700] to-[#21A038]"/><div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#21A038] via-[#FFD700] to-[#ED2024]"/><div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-[#ED2024] via-[#FFD700] to-[#21A038]"/><div className="absolute top-0 right-0 w-1.5 h-full bg-gradient-to-b from-[#ED2024] via-[#FFD700] to-[#21A038]"/>
-                <div className="absolute inset-0 flex items-center justify-center overflow-auto p-4 z-10">{!board.length?(<div className="text-white/20 text-center animate-pulse"><Sun s={80} c="mx-auto mb-3 opacity-20"/><div className="text-sm font-bold">{waiting?t.wachtVriend:t.legEerste}</div></div>):(<DominoChain board={board} lastIdx={lastIdx}/>)}</div>
-              </div>
-
+              <div className="flex-1 relative overflow-auto"><div className="absolute inset-0"><div className="absolute top-0 left-0 right-0 h-1/3 bg-[#ED2024]/20"/><div className="absolute top-1/3 left-0 right-0 h-1/3 bg-white/10"/><div className="absolute top-2/3 left-0 right-0 h-1/3 bg-[#21A038]/20"/></div><div className="absolute inset-0" style={{background:"radial-gradient(ellipse at center, rgba(30,100,45,0.75) 0%, rgba(20,70,30,0.85) 60%, rgba(10,50,15,0.92) 100%)"}}/><div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Sun s={250} c="opacity-[0.08]"/></div><div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#ED2024] via-[#FFD700] to-[#21A038]"/><div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#21A038] via-[#FFD700] to-[#ED2024]"/><div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-[#ED2024] via-[#FFD700] to-[#21A038]"/><div className="absolute top-0 right-0 w-1.5 h-full bg-gradient-to-b from-[#ED2024] via-[#FFD700] to-[#21A038]"/><div className="absolute inset-0 flex items-center justify-center overflow-auto p-4 z-10">{!board.length?(<div className="text-white/20 text-center animate-pulse"><Sun s={80} c="mx-auto mb-3 opacity-20"/><div className="text-sm font-bold">{waiting?t.wachtVriend:t.legEerste}</div></div>):(<DominoChain board={board} lastIdx={lastIdx}/>)}</div></div>
               <div className="bg-black/60 px-2 py-1.5 flex items-center justify-between flex-shrink-0 border-t border-yellow-500/30"><div className="flex items-center gap-1.5"><div className="w-7 h-7 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-sm shadow border border-yellow-300/50">{account.avatar}</div><div><div className="text-white font-bold text-[11px]">{playerName}</div><div className="text-white/30 text-[9px]">{hand.length} {t.stenen}</div></div></div><div className="flex gap-1.5 items-center">{!canAny()&&myTurn&&!gameOver&&cPile>0&&<span className="text-red-400 text-[8px] animate-pulse">⚠️</span>}<button onClick={draw} disabled={!myTurn||!!gameOver||cPile===0} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold disabled:opacity-25 active:bg-blue-500 shadow">📦 {t.pak}</button>{!canAny()&&myTurn&&!gameOver&&cPile===0&&<button onClick={pass} className="bg-orange-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold active:bg-orange-500 shadow">⏭️ {t.pas}</button>}</div></div>
             </div>
-
             <div className={`w-full sm:w-52 md:w-56 bg-black/50 flex flex-col border-l border-yellow-500/10 ${tab==="board"?"hidden sm:flex":"flex"}`}>
               <div className="text-white/40 font-bold text-[10px] text-center py-1.5 bg-yellow-500/10 hidden sm:block">💬 {t.chat}</div>
               <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">{!msgs.length&&<div className="text-white/15 text-[10px] text-center mt-8">{t.geenBerichten}</div>}{msgs.map((m,i)=>(<div key={i} className={`p-1.5 rounded-lg text-[10px] ${m.sender==="⚙️"?"bg-blue-500/10 text-blue-300/80 italic":m.sender.includes("🤖")?"bg-red-500/10 text-red-300/80":"bg-white/5 text-white/80"}`}><div className="flex justify-between"><span className="font-bold text-yellow-400/80 text-[9px]">{m.sender}</span><span className="text-white/10 text-[7px]">{m.time}</span></div><div className="break-words mt-px">{m.text}</div></div>))}<div ref={btm}/></div>
