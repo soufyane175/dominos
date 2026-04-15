@@ -1,437 +1,1948 @@
 "use client";
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import { io, Socket } from "socket.io-client";
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { io, Socket } from 'socket.io-client';
 
 const SOCKET_URL = "https://dominos-app.onrender.com";
 
 type Tile = [number, number];
-type Msg = { sender: string; text: string; time: string };
-type BE = { tile: Tile; flipped: boolean };
-type Account = { username: string; wins: number; losses: number; games: number; avatar: string; created: number };
-
-function getEnds(b: BE[]): [number, number] {
-  if (!b.length) return [-1, -1];
-  const f = b[0], l = b[b.length - 1];
-  return [f.flipped ? f.tile[1] : f.tile[0], l.flipped ? l.tile[0] : l.tile[1]];
-}
-function canPlay(t: Tile, b: BE[], e: [number, number]): "left" | "right" | null {
-  if (!b.length) return "right";
-  if (t[0] === e[0] || t[1] === e[0]) return "left";
-  if (t[0] === e[1] || t[1] === e[1]) return "right";
-  return null;
-}
-function shouldFlip(tile: Tile, side: "left" | "right", ends: [number, number], empty: boolean): boolean {
-  if (empty) return false;
-  if (side === "left") return tile[0] === ends[0];
-  return tile[1] === ends[1];
-}
-function allT(): Tile[] { const t: Tile[] = []; for (let i = 0; i <= 6; i++) for (let j = i; j <= 6; j++) t.push([i, j]); return t; }
-function shuf(a: Tile[]): Tile[] { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; }
-
-const txt = {
-  NL: { stenen:"stenen",perSpeler:"per speler",tegenBot:"Tegen Bot",kamerMaken:"Kamer Maken",joinen:"Joinen",jij:"Jij",jouwBeurt:"Jouw beurt",spel:"Spel",chat:"Chat",legEerste:"Leg eerste steen!",wachtVriend:"Wacht op vriend...",pak:"Pak",pas:"Pas",pakUitPot:"Pak uit de pot!",geenBerichten:"Geen berichten",typ:"Typ...",stuurCode:"Stuur code!",vulCode:"Vul code in!",serverStart:"Server start op...",opnieuw:"Opnieuw",verloren:"VERLOREN!",gewonnen:"JIJ WINT!",gefeliciteerd:"Gefeliciteerd!",pastNiet:"Past niet!",gepast:"Gepast.",botPast:"Bot past.",botPakt:"Bot pakt.",jijBegint:"Jij begint!",kopieer:"Kopieer",welkom:"Welkom bij",login:"Inloggen",maakAcc:"Account Maken",gebruiker:"Gebruikersnaam",wachtwoord:"Wachtwoord",kiesAvatar:"Kies je avatar",heb:"Heb al een account?",geenAcc:"Nog geen account?",uitloggen:"Uitloggen",wins:"Gewonnen",losses:"Verloren",games:"Gespeeld",ofGast:"Of speel als gast →",scorebord:"Scorebord",rang:"Rang",speler:"Speler",winrate:"Win%",geenSpelers:"Nog geen spelers",profiel:"Profiel",terug:"Terug",lidSinds:"Lid sinds",jouwStats:"Jouw Statistieken",alleSpelers:"Alle Spelers" },
-  KU: { stenen:"تابلۆ",perSpeler:"بۆ هەر یاریزان",tegenBot:"دژی بۆت",kamerMaken:"دروستکردنی ژوور",joinen:"چوونە ناو",jij:"تۆ",jouwBeurt:"نۆبەی تۆ",spel:"یاری",chat:"چات",legEerste:"یەکەم تابلۆ دابنێ!",wachtVriend:"چاوەڕوانی هاوڕێ...",pak:"هەڵگرتن",pas:"تێپەڕاندن",pakUitPot:"لە پۆت هەڵبگرە!",geenBerichten:"هیچ پەیامێک نییە",typ:"بنووسە...",stuurCode:"کۆدەکە بنێرە!",vulCode:"کۆدەکە بنووسە!",serverStart:"سێرڤەر دەست پێ دەکات...",opnieuw:"دووبارە",verloren:"تۆ دۆڕاویت!",gewonnen:"تۆ بردیت!",gefeliciteerd:"پیرۆزە!",pastNiet:"ناگونجێت!",gepast:"تێپەڕێنرا.",botPast:"بۆت تێپەڕاند.",botPakt:"بۆت هەڵیگرت.",jijBegint:"تۆ دەست پێ دەکەیت!",kopieer:"کۆپی",welkom:"بەخێربێیت بۆ",login:"چوونەژوورەوە",maakAcc:"هەژمار دروستکردن",gebruiker:"ناوی بەکارهێنەر",wachtwoord:"وشەی نهێنی",kiesAvatar:"ئاواتارەکەت هەڵبژێرە",heb:"هەژمارت هەیە؟",geenAcc:"هەژمارت نییە؟",uitloggen:"دەرچوون",wins:"بردن",losses:"دۆڕان",games:"یاری",ofGast:"یان وەک میوان بچۆ →",scorebord:"تەختەی ئەنجام",rang:"پلە",speler:"یاریزان",winrate:"ڕێژەی بردن",geenSpelers:"هیچ یاریزانێک نییە",profiel:"پرۆفایل",terug:"گەڕانەوە",lidSinds:"ئەندام لە",jouwStats:"ئامارەکانت",alleSpelers:"هەموو یاریزانەکان" },
+type Message = { sender: string; text: string; time: string };
+type UserData = {
+  id: string;
+  username: string;
+  avatar: string;
+  diamonds: number;
+  selectedSkin: string;
+  ownedSkins: string[];
+  stats: { wins: number; losses: number; games: number; streak: number };
+  createdAt?: string;
 };
 
-const D: number[][] = [[],[4],[2,6],[2,4,6],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
-const Dots = ({v,sz}:{v:number;sz:number}) => (<div className="grid grid-cols-3 gap-px" style={{width:sz,height:sz}}>{[...Array(9)].map((_,i)=><div key={i} className={`rounded-full ${D[v].includes(i)?"bg-gray-900":""}`} style={{width:"100%",aspectRatio:"1"}}/>)}</div>);
-const Sun = ({s=200,c=""}:{s?:number;c?:string}) => (<svg width={s} height={s} viewBox="0 0 200 200" className={c}>{[...Array(21)].map((_,i)=>{const a=(i*360)/21-90,r=(a*Math.PI)/180,lr=((a-8)*Math.PI)/180,rr=((a+8)*Math.PI)/180;return <polygon key={i} points={`${100+Math.cos(lr)*45},${100+Math.sin(lr)*45} ${100+Math.cos(r)*90},${100+Math.sin(r)*90} ${100+Math.cos(rr)*45},${100+Math.sin(rr)*45}`} fill="#FCBF09"/>})}<circle cx="100" cy="100" r="45" fill="#FCBF09"/></svg>);
+type Skin = {
+  id: string;
+  name: string;
+  type: 'table' | 'tiles' | 'rack';
+  price: number;
+  emoji: string;
+  colors: { primary: string; secondary: string; accent: string };
+};
 
-function playTileSound(){try{const c=new(window.AudioContext||(window as any).webkitAudioContext)();const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type="triangle";o.frequency.value=250;g.gain.setValueAtTime(0.3,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.15);o.start();o.stop(c.currentTime+0.15)}catch(e){}}
-function playLaughSound(){try{const c=new(window.AudioContext||(window as any).webkitAudioContext)();[800,600,900,500,1000,400,800,600].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type="sine";o.frequency.value=f;const t=c.currentTime+i*0.12;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.15,t+0.02);g.gain.exponentialRampToValueAtTime(0.001,t+0.11);o.start(t);o.stop(t+0.12)})}catch(e){}}
-function playWinSound(){try{const c=new(window.AudioContext||(window as any).webkitAudioContext)();[523,659,784,1047].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type="sine";o.frequency.value=f;const t=c.currentTime+i*0.2;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.2,t+0.05);g.gain.exponentialRampToValueAtTime(0.001,t+0.5);o.start(t);o.stop(t+0.5)})}catch(e){}}
-
-function Confetti(){const[p]=useState(()=>Array.from({length:50},(_,i)=>({id:i,x:Math.random()*100,delay:Math.random()*2,dur:2+Math.random()*3,size:6+Math.random()*8,color:["#FF0000","#FFD700","#00FF00","#00BFFF","#FF69B4","#FFA500","#9400D3"][Math.floor(Math.random()*7)],round:Math.random()>0.5})));return(<div className="fixed inset-0 z-[100] pointer-events-none overflow-hidden">{p.map(x=><div key={x.id} className="absolute" style={{left:`${x.x}%`,top:"-20px",width:`${x.size}px`,height:`${x.size}px`,backgroundColor:x.color,borderRadius:x.round?"50%":"2px",animation:`cfall ${x.dur}s ${x.delay}s linear forwards`}}/>)}<style jsx>{`@keyframes cfall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}`}</style></div>)}
-function LaughOverlay({onClose,lang}:{onClose:()=>void;lang:"KU"|"NL"}){const[show,setShow]=useState(true);const L=["🤣","😂","😆"];const[ci,setCi]=useState(0);useEffect(()=>{playLaughSound();const ei=setInterval(()=>setCi(p=>(p+1)%L.length),400);const tm=setTimeout(()=>{setShow(false);setTimeout(onClose,500)},4000);return()=>{clearInterval(ei);clearTimeout(tm)}},[onClose]);return(<div className={`fixed inset-0 z-[99] flex items-center justify-center transition-opacity duration-500 ${show?"opacity-100":"opacity-0"}`}><div className="absolute inset-0 bg-black/60 backdrop-blur-sm"/><div className="relative z-10 flex flex-col items-center"><div style={{animation:"blgh .8s ease-in-out infinite"}} className="text-[120px] sm:text-[180px] leading-none select-none">{L[ci]}</div><div className="mt-4 text-white font-black text-2xl sm:text-4xl animate-pulse">{lang==="KU"?"تۆ دۆڕاویت! 😂":"VERLOREN! 😂"}</div></div><style jsx>{`@keyframes blgh{0%,100%{transform:scale(1)}15%{transform:scale(1.3) rotate(-10deg)}45%{transform:scale(1.2) rotate(5deg)}}`}</style></div>)}
-function WinOverlay({onClose,lang}:{onClose:()=>void;lang:"KU"|"NL"}){const[show,setShow]=useState(true);useEffect(()=>{playWinSound();const tm=setTimeout(()=>{setShow(false);setTimeout(onClose,500)},4000);return()=>clearTimeout(tm)},[onClose]);return(<div className={`fixed inset-0 z-[99] flex items-center justify-center transition-opacity duration-500 ${show?"opacity-100":"opacity-0"}`}><div className="absolute inset-0 bg-black/50 backdrop-blur-sm"/><Confetti/><div className="relative z-10 flex flex-col items-center"><div className="text-[100px] sm:text-[150px] leading-none animate-bounce select-none">🏆</div><div className="mt-2 text-3xl animate-bounce">👑</div><div className="mt-4 text-yellow-400 font-black text-3xl sm:text-5xl animate-pulse">{lang==="KU"?"تۆ بردیت!":"JIJ WINT!"}</div></div></div>)}
-function DominoChain({board,lastIdx}:{board:BE[];lastIdx:number}){return(<div className="flex flex-wrap items-center justify-center gap-[2px] p-2">{board.map((entry,idx)=>{const tile=entry.tile;const d:Tile=entry.flipped?[tile[1],tile[0]]:tile;const isDouble=tile[0]===tile[1];const isNew=idx===lastIdx;if(isDouble){return(<div key={idx} className={`flex flex-col items-center justify-around rounded-md border-2 border-[#C4B998] shadow-lg flex-shrink-0 ${isNew?"animate-pop":""}`} style={{width:28,height:52,background:"linear-gradient(160deg, #FFFEF5, #F0E6D0)"}}><Dots v={d[0]} sz={11}/><div className="w-[70%] h-px bg-[#C4B998]"/><Dots v={d[1]} sz={11}/></div>)}return(<div key={idx} className={`flex flex-row items-center justify-around rounded-md border-2 border-[#C4B998] shadow-lg flex-shrink-0 ${isNew?"animate-pop":""}`} style={{width:52,height:28,background:"linear-gradient(160deg, #FFFEF5, #F0E6D0)"}}><Dots v={d[0]} sz={11}/><div className="h-[70%] w-px bg-[#C4B998]"/><Dots v={d[1]} sz={11}/></div>)})}<style jsx>{`@keyframes pop{0%{transform:scale(0) rotate(-20deg);opacity:0}60%{transform:scale(1.2) rotate(5deg)}100%{transform:scale(1) rotate(0);opacity:1}}.animate-pop{animation:pop 0.4s ease-out}`}</style></div>)}
-
-// ✅ Get all players from localStorage
-function getAllPlayers(): Account[] {
-  try {
-    const accs: Record<string, { account: Account }> = JSON.parse(localStorage.getItem("domino_accounts") || "{}");
-    return Object.values(accs).map(a => a.account).sort((a, b) => b.wins - a.wins);
-  } catch { return []; }
-}
-
-// ✅ Scorebord Component
-function Scorebord({ lang, onBack, currentUser }: { lang: "KU" | "NL"; onBack: () => void; currentUser: string }) {
-  const t = txt[lang];
-  const players = getAllPlayers();
-  const rankEmojis = ["🥇", "🥈", "🥉"];
-
-  return (
-    <div className="w-full max-w-[400px] px-4 z-10 animate-fadeIn">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={onBack} className="text-white/60 bg-white/10 px-3 py-1.5 rounded-xl text-xs font-bold active:bg-white/20">← {t.terug}</button>
-        <h2 className="text-white font-black text-lg">🏆 {t.scorebord}</h2>
-        <div className="w-16" />
-      </div>
-
-      {/* Stats van jezelf */}
-      {(() => {
-        const me = players.find(p => p.username === currentUser);
-        const myRank = players.findIndex(p => p.username === currentUser) + 1;
-        if (!me) return null;
-        return (
-          <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-2xl p-4 mb-4 backdrop-blur-sm">
-            <div className="text-white/50 text-[10px] font-bold mb-2">📊 {t.jouwStats}</div>
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-3xl shadow-lg border-2 border-yellow-300">{me.avatar}</div>
-              <div className="flex-1">
-                <div className="text-white font-black text-base">{me.username}</div>
-                <div className="text-white/40 text-[10px]">{t.rang}: #{myRank}</div>
-              </div>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div><div className="text-green-400 font-black text-lg">{me.wins}</div><div className="text-white/30 text-[8px]">{t.wins}</div></div>
-                <div><div className="text-red-400 font-black text-lg">{me.losses}</div><div className="text-white/30 text-[8px]">{t.losses}</div></div>
-                <div><div className="text-blue-400 font-black text-lg">{me.games}</div><div className="text-white/30 text-[8px]">{t.games}</div></div>
-              </div>
-            </div>
-            {/* Win rate bar */}
-            <div className="mt-3">
-              <div className="flex justify-between text-[9px] text-white/40 mb-1">
-                <span>{t.winrate}</span>
-                <span>{me.games > 0 ? Math.round((me.wins / me.games) * 100) : 0}%</span>
-              </div>
-              <div className="h-2 bg-black/30 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-green-500 to-yellow-500 rounded-full transition-all duration-500"
-                  style={{ width: `${me.games > 0 ? (me.wins / me.games) * 100 : 0}%` }} />
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Alle spelers lijst */}
-      <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
-        <div className="bg-white/5 px-4 py-2 flex items-center justify-between">
-          <span className="text-white/50 text-[10px] font-bold">👥 {t.alleSpelers}</span>
-          <span className="text-white/30 text-[10px]">{players.length} {t.speler}</span>
-        </div>
-
-        {/* Header row */}
-        <div className="grid grid-cols-[40px_1fr_50px_50px_50px_55px] gap-1 px-3 py-1.5 text-[9px] text-white/30 font-bold border-b border-white/5">
-          <div>{t.rang}</div>
-          <div>{t.speler}</div>
-          <div className="text-center">🏆</div>
-          <div className="text-center">💀</div>
-          <div className="text-center">🎮</div>
-          <div className="text-center">{t.winrate}</div>
-        </div>
-
-        {/* Player rows */}
-        <div className="max-h-[300px] overflow-y-auto">
-          {players.length === 0 && (
-            <div className="text-white/20 text-xs text-center py-8">{t.geenSpelers}</div>
-          )}
-          {players.map((p, idx) => {
-            const isMe = p.username === currentUser;
-            const wr = p.games > 0 ? Math.round((p.wins / p.games) * 100) : 0;
-            return (
-              <div key={p.username}
-                className={`grid grid-cols-[40px_1fr_50px_50px_50px_55px] gap-1 px-3 py-2 items-center transition-colors ${
-                  isMe ? "bg-yellow-500/10 border-l-2 border-yellow-500" : idx % 2 === 0 ? "bg-white/[0.02]" : ""
-                }`}>
-                {/* Rang */}
-                <div className="text-center">
-                  {idx < 3 ? (
-                    <span className="text-lg">{rankEmojis[idx]}</span>
-                  ) : (
-                    <span className="text-white/40 text-xs font-bold">#{idx + 1}</span>
-                  )}
-                </div>
-
-                {/* Speler */}
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0 ${
-                    idx === 0 ? "bg-gradient-to-br from-yellow-400 to-yellow-600 shadow-lg shadow-yellow-500/30" :
-                    idx === 1 ? "bg-gradient-to-br from-gray-300 to-gray-500" :
-                    idx === 2 ? "bg-gradient-to-br from-orange-400 to-orange-700" :
-                    "bg-white/10"
-                  }`}>{p.avatar}</div>
-                  <div className="min-w-0">
-                    <div className={`font-bold text-[11px] truncate ${isMe ? "text-yellow-400" : "text-white"}`}>
-                      {p.username} {isMe && "⭐"}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className="text-center text-green-400 font-bold text-xs">{p.wins}</div>
-                <div className="text-center text-red-400 font-bold text-xs">{p.losses}</div>
-                <div className="text-center text-white/40 font-bold text-xs">{p.games}</div>
-
-                {/* Win rate */}
-                <div className="text-center">
-                  <span className={`font-black text-xs ${wr >= 60 ? "text-green-400" : wr >= 40 ? "text-yellow-400" : "text-red-400"}`}>
-                    {wr}%
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <style jsx>{`
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fadeIn { animation: fadeIn 0.4s ease-out; }
-      `}</style>
-    </div>
-  );
-}
+type Tournament = {
+  id: string;
+  name: string;
+  startTime: number;
+  endTime: number;
+  entryFee: number;
+  maxPlayers: number;
+  players: { id: string; name: string; avatar: string; wins: number }[];
+  prizes: { first: number; second: number; third: number };
+  status: 'soon' | 'active' | 'finished';
+};
 
 export default function Home() {
-  const [account, setAccount] = useState<Account | null>(null);
-  const [authLoaded, setAuthLoaded] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "create">("create");
-  const [authUser, setAuthUser] = useState("");
-  const [authPass, setAuthPass] = useState("");
-  const [authErr, setAuthErr] = useState("");
-  const [authAvatar, setAuthAvatar] = useState("😎");
-  const [authStep, setAuthStep] = useState(1);
-  const avatars = ["😎","🤖","👑","🔥","💀","🐐","☀️","🦁","🎲","💪","😈","🥶","🧔","⚡","🌟","🎯"];
-
-  // ✅ view kan nu ook "scores" zijn
-  const [view, setView] = useState<"menu" | "game" | "scores">("menu");
-  const [lang, setLang] = useState<"KU" | "NL">("NL");
-  const t = txt[lang];
-  const [mode, setMode] = useState<"bot" | "online">("bot");
-  const [tab, setTab] = useState<"board" | "chat">("board");
-
-  const [board, setBoard] = useState<BE[]>([]);
-  const [hand, setHand] = useState<Tile[]>([]);
-  const [botHand, setBotHand] = useState<Tile[]>([]);
-  const [pile, setPile] = useState<Tile[]>([]);
-  const [myTurn, setMyTurn] = useState(true);
-  const [gameOver, setGameOver] = useState<string | null>(null);
+  const [view, setView] = useState<'loading' | 'login' | 'menu' | 'game' | 'waiting' | 'stats' | 'store' | 'champions' | 'tournament'>('loading');
+  const [activeTab, setActiveTab] = useState<'play' | 'champions' | 'store'>('play');
+  const [playMode, setPlayMode] = useState<'quick' | 'ranked' | 'turbo' | 'tournament' | null>(null);
+  const [playerName, setPlayerName] = useState('');
+  const [connected, setConnected] = useState(false);
+  
+  // Auth
+  const [currentUser, setCurrentUser] = useState<UserData | null>(null);
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [registerUsername, setRegisterUsername] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerConfirm, setRegisterConfirm] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isRegister, setIsRegister] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState('🎲');
+  
+  // Game
+  const [board, setBoard] = useState<{tile: Tile, side: 'left' | 'right'}[]>([]);
+  const [playerHand, setPlayerHand] = useState<Tile[]>([]);
+  const [opponentHand, setOpponentHand] = useState<Tile[]>([]);
+  const [currentTurn, setCurrentTurn] = useState<'player' | 'opponent'>('player');
+  const [gameOver, setGameOver] = useState(false);
+  const [winner, setWinner] = useState<'player' | 'opponent' | null>(null);
+  const [gameMode, setGameMode] = useState<'quick' | 'ranked' | 'turbo' | 'bot'>('quick');
+  const [botDifficulty, setBotDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [roundNumber, setRoundNumber] = useState(1);
+  const [turnTimer, setTurnTimer] = useState(15);
+  const [isTurbo, setIsTurbo] = useState(false);
+  
+  // Room
+  const [roomCode, setRoomCode] = useState('');
+  const [inputCode, setInputCode] = useState('');
+  const socketRef = useRef<Socket | null>(null);
+  const [isInRoom, setIsInRoom] = useState(false);
+  const [playersInRoom, setPlayersInRoom] = useState<any[]>([]);
+  const [isHost, setIsHost] = useState(false);
+  
+  // UI
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [currentMsg, setCurrentMsg] = useState('');
+  const [showChat, setShowChat] = useState(false);
   const [showLaugh, setShowLaugh] = useState(false);
-  const [showWin, setShowWin] = useState(false);
-  const [iWon, setIWon] = useState(false);
-  const [lastIdx, setLastIdx] = useState(-1);
+  const [showSettings, setShowSettings] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [shakeLogin, setShakeLogin] = useState(false);
+  const [showGameMenu, setShowGameMenu] = useState(false);
+  
+  // Stats
+  const [allUsers, setAllUsers] = useState<UserData[]>([]);
+  const [statsSortBy, setStatsSortBy] = useState<'wins' | 'games' | 'losses' | 'winrate' | 'diamonds'>('wins');
+  const [statsSearch, setStatsSearch] = useState('');
+  
+  // Store
+  const [storeTab, setStoreTab] = useState<'skins' | 'gems'>('skins');
+  const [dailyRefresh, setDailyRefresh] = useState('12:00:00');
+  
+  // Tournament
+  const [currentTournament, setCurrentTournament] = useState<Tournament | null>(null);
+  const [tournamentTimer, setTournamentTimer] = useState('23:59:59');
 
-  const [room, setRoom] = useState("");
-  const [input, setInput] = useState("");
-  const [oppName, setOppName] = useState("Bot");
-  const [oppCount, setOppCount] = useState(7);
-  const [pileCount, setPileCount] = useState(14);
-  const [waiting, setWaiting] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [status, setStatus] = useState<"off" | "on" | "err">("off");
-  const [joinErr, setJoinErr] = useState("");
+  // Skins
+  const skins: Skin[] = [
+    { id: 'default', name: 'کلاسیک', type: 'table', price: 0, emoji: '🎲', colors: { primary: '#2d5a27', secondary: '#1a3d15', accent: '#8B4513' } },
+    { id: 'neon', name: 'نیۆن', type: 'table', price: 100, emoji: '💜', colors: { primary: '#1a0033', secondary: '#330066', accent: '#9933ff' } },
+    { id: 'gold', name: 'زێڕین', type: 'table', price: 250, emoji: '✨', colors: { primary: '#4a3000', secondary: '#6b4400', accent: '#ffd700' } },
+    { id: 'ocean', name: 'ئاویان', type: 'table', price: 150, emoji: '🌊', colors: { primary: '#003366', secondary: '#006699', accent: '#00ccff' } },
+    { id: 'fire', name: 'ئاگرین', type: 'table', price: 200, emoji: '🔥', colors: { primary: '#330000', secondary: '#660000', accent: '#ff3300' } },
+    { id: 'kurdistan', name: 'کوردستان', type: 'table', price: 300, emoji: '🇨🇺', colors: { primary: '#278E43', secondary: '#ED1C24', accent: '#FFC800' } },
+  ];
 
-  const [msgs, setMsgs] = useState<Msg[]>([]);
-  const [msg, setMsg] = useState("");
-  const [showEm, setShowEm] = useState(false);
-  const [unread, setUnread] = useState(0);
-
-  const sock = useRef<Socket | null>(null);
-  const btm = useRef<HTMLDivElement>(null);
-  const emos = ["🔥","👏","😂","👋","😍","😎","💯","😡","🥳","😭","🤣","💀","🎉","❤️","👑","🐐","😈","💪","🙏","☀️"];
-  const playerName = account?.username || "Gast";
-
-  useEffect(() => { try { const s = localStorage.getItem("domino_account"); if (s) setAccount(JSON.parse(s)); } catch(e){} setAuthLoaded(true); }, []);
-  const saveAccount = (a: Account) => { setAccount(a); localStorage.setItem("domino_account", JSON.stringify(a)); };
-  const handleAuth = () => {
-    if (authMode === "create" && authStep === 1) { setAuthStep(2); return; }
-    if (!authUser.trim()) { setAuthErr(lang === "KU" ? "ناوەکە بنووسە!" : "Vul naam in!"); return; }
-    if (authUser.trim().length < 2) { setAuthErr(lang === "KU" ? "ناوەکە کورتە!" : "Naam te kort!"); return; }
-    if (!authPass.trim()) { setAuthErr(lang === "KU" ? "وشەی نهێنی!" : "Vul wachtwoord in!"); return; }
-    if (authPass.trim().length < 3) { setAuthErr(lang === "KU" ? "وشەی نهێنی کورتە!" : "Wachtwoord te kort!"); return; }
-    const accs: Record<string, any> = JSON.parse(localStorage.getItem("domino_accounts") || "{}");
-    if (authMode === "create") {
-      if (accs[authUser.toLowerCase()]) { setAuthErr(lang === "KU" ? "ئەم ناوە بەکارهاتووە!" : "Naam bezet!"); return; }
-      const a: Account = { username: authUser.trim(), wins: 0, losses: 0, games: 0, avatar: authAvatar, created: Date.now() };
-      accs[authUser.toLowerCase()] = { password: authPass, account: a };
-      localStorage.setItem("domino_accounts", JSON.stringify(accs)); saveAccount(a);
-    } else {
-      const e = accs[authUser.toLowerCase()];
-      if (!e) { setAuthErr(lang === "KU" ? "هەژمار نەدۆزرایەوە!" : "Niet gevonden!"); return; }
-      if (e.password !== authPass) { setAuthErr(lang === "KU" ? "وشەی نهێنی هەڵەیە!" : "Fout wachtwoord!"); return; }
-      saveAccount(e.account);
-    }
-    setAuthErr("");
-  };
-  const updateStats = useCallback((won: boolean) => {
-    setAccount(prev => { if (!prev) return prev; const u = { ...prev, games: prev.games + 1, wins: prev.wins + (won ? 1 : 0), losses: prev.losses + (won ? 0 : 1) }; localStorage.setItem("domino_account", JSON.stringify(u)); const accs: Record<string, any> = JSON.parse(localStorage.getItem("domino_accounts") || "{}"); if (accs[prev.username.toLowerCase()]) { accs[prev.username.toLowerCase()].account = u; localStorage.setItem("domino_accounts", JSON.stringify(accs)); } return u; });
-  }, []);
-  const logout = () => { setAccount(null); localStorage.removeItem("domino_account"); setAuthMode("create"); setAuthStep(1); setAuthUser(""); setAuthPass(""); setAuthErr(""); };
-
-  useEffect(() => { btm.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
-  const trigEnd = useCallback((won: boolean) => { setIWon(won); updateStats(won); if (won) setShowWin(true); else setShowLaugh(true); }, [updateStats]);
-  const sys = useCallback((s: string) => { setMsgs(p => [...p, { sender: "⚙️", text: s, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }]); setTab(prev => { if (prev !== "chat") setUnread(c => c + 1); return prev; }); }, []);
-
+  // Loading
   useEffect(() => {
-    const s = io(SOCKET_URL, { transports: ["websocket", "polling"], reconnection: true, reconnectionAttempts: 50, reconnectionDelay: 1000, timeout: 30000 });
-    sock.current = s;
-    s.on("connect", () => setStatus("on")); s.on("connect_error", () => setStatus("err")); s.on("disconnect", () => setStatus("off"));
-    s.on("roomCreated", ({ code }: any) => { setRoom(code); setWaiting(true); setMode("online"); setView("game"); setGameOver(null); setMsgs([]); setTab("board"); setShowLaugh(false); setShowWin(false); setLastIdx(-1); });
-    s.on("gameStarted", ({ p1, p2 }: any) => { setWaiting(false); setMode("online"); setView("game"); setGameOver(null); sys(`🎮 ${p1} vs ${p2}`); });
-    s.on("gameState", (d: any) => { setBoard(prev => { if (d.board?.length > prev.length) { setLastIdx(d.board.length - 1); playTileSound(); } return d.board || []; }); setHand(d.hand || []); setPileCount(d.pileCount || 0); setOppCount(d.opponentHandCount || 0); setOppName(d.opponentName || "..."); setMyTurn(d.turn === d.playerIndex); if (d.started) { setWaiting(false); setView("game"); setMode("online"); } if (d.winner && !gameOver) { trigEnd(d.winner.index === d.playerIndex); setGameOver(d.winner.index === d.playerIndex ? "🎉" : "💀"); } });
-    s.on("joinError", (m: string) => setJoinErr(m)); s.on("tilePlayed", ({ playerName: pn, tile }: any) => sys(`🎯 ${pn}: [${tile[0]}|${tile[1]}]`)); s.on("playerPassed", ({ name: n }: any) => sys(`⏭️ ${n}`));
-    s.on("chatMsg", (m: Msg) => { setMsgs(p => [...p, m]); setTab(prev => { if (prev !== "chat") setUnread(c => c + 1); return prev; }); });
-    s.on("opponentLeft", () => { sys("❌"); setGameOver("❌"); }); s.on("gameRestarted", () => { setGameOver(null); setShowLaugh(false); setShowWin(false); setLastIdx(-1); sys("🔄"); }); s.on("playError", (m: string) => sys(`❌ ${m}`));
-    return () => { s.removeAllListeners(); s.disconnect(); };
-  }, [sys, trigEnd, gameOver]);
+    setTimeout(() => {
+      const saved = localStorage.getItem('domino_user');
+      if (saved) {
+        const user = JSON.parse(saved);
+        // Ensure all fields exist
+        if (!user.diamonds) user.diamonds = 500;
+        if (!user.ownedSkins) user.ownedSkins = ['default'];
+        if (!user.selectedSkin) user.selectedSkin = 'default';
+        if (!user.stats.streak) user.stats.streak = 0;
+        setCurrentUser(user);
+        setPlayerName(user.username);
+        setView('menu');
+      } else {
+        setView('login');
+      }
+    }, 1500);
+  }, []);
 
-  const oCreate = () => { if (status !== "on") { setJoinErr(t.serverStart); fetch(SOCKET_URL).catch(() => {}); return; } setJoinErr(""); sock.current?.emit("createRoom", { playerName }); };
-  const oJoin = () => { const c = input.trim().toUpperCase(); if (!c) { setJoinErr(t.vulCode); return; } if (status !== "on") { setJoinErr(t.serverStart); return; } setJoinErr(""); setRoom(c); setMode("online"); setMsgs([]); setTab("board"); setGameOver(null); sock.current?.emit("joinRoom", { code: c, playerName }); };
-  const oPlay = (i: number) => { if (myTurn && !gameOver) sock.current?.emit("playTile", { tileIndex: i }); };
-  const oDraw = () => { if (myTurn && !gameOver) sock.current?.emit("drawTile"); };
-  const oPass = () => { if (myTurn && !gameOver) sock.current?.emit("passTurn"); };
-  const oChat = (s: string) => { if (s.trim()) { sock.current?.emit("sendChat", { text: s.trim() }); setMsg(""); setShowEm(false); } };
-  const oRestart = () => { setShowLaugh(false); setShowWin(false); setLastIdx(-1); sock.current?.emit("restartGame"); };
+  // Load users
+  useEffect(() => {
+    loadAllUsers();
+    createDefaultTournament();
+  }, []);
 
-  const startBot = () => { const a = shuf(allT()); setHand(a.slice(0,7)); setBotHand(a.slice(7,14)); setPile(a.slice(14)); setBoard([]); setMyTurn(true); setGameOver(null); setMode("bot"); setView("game"); setRoom("BOT"); setMsgs([]); setTab("board"); setOppName("Bot 🤖"); setOppCount(7); setPileCount(14); setShowLaugh(false); setShowWin(false); setLastIdx(-1); setTimeout(() => sys(`🤖 ${t.jijBegint}`), 100); };
-  const bPlay = (tile: Tile, idx: number) => {
-    if (!myTurn || gameOver) return;
-    if (!board.length) { const nb=[{tile,flipped:false}]; setBoard(nb); setLastIdx(0); playTileSound(); const nh=hand.filter((_,i)=>i!==idx); setHand(nh); sys(`🎯 ${playerName}: [${tile[0]}|${tile[1]}]`); if(!nh.length){setGameOver("🎉");trigEnd(true);return;} setMyTurn(false); setTimeout(()=>botMove(nb),800); return; }
-    const ends=getEnds(board); const side=canPlay(tile,board,ends);
-    if(!side){sys(`❌ ${t.pastNiet}`);return;}
-    const fl=shouldFlip(tile,side,ends,false); const entry:BE={tile,flipped:fl};
-    const nb=side==="left"?[entry,...board]:[...board,entry]; const ni=side==="left"?0:nb.length-1;
-    setBoard(nb);setLastIdx(ni);playTileSound();const nh=hand.filter((_,i)=>i!==idx);setHand(nh);sys(`🎯 ${playerName}: [${tile[0]}|${tile[1]}]`);
-    if(!nh.length){setGameOver("🎉");trigEnd(true);return;} setMyTurn(false);setTimeout(()=>botMove(nb),800);
+  // Timer for tournament
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (currentTournament) {
+        const now = Date.now();
+        const diff = currentTournament.endTime - now;
+        if (diff > 0) {
+          const hours = Math.floor(diff / 3600000);
+          const minutes = Math.floor((diff % 3600000) / 60000);
+          const seconds = Math.floor((diff % 60000) / 1000);
+          setTournamentTimer(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+        }
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [currentTournament]);
+
+  // Turbo timer
+  useEffect(() => {
+    if (!isTurbo || currentTurn !== 'player' || gameOver || view !== 'game') return;
+    
+    const timer = setInterval(() => {
+      setTurnTimer(prev => {
+        if (prev <= 1) {
+          // Auto play random tile
+          if (playerHand.length > 0) {
+            const playable = playerHand.map((tile, index) => ({
+              tile, index,
+              left: canPlayTile(tile, 'left'),
+              right: canPlayTile(tile, 'right')
+            })).filter(t => t.left || t.right);
+            
+            if (playable.length > 0) {
+              const move = playable[0];
+              playTile(move.tile, move.index, move.right ? 'right' : 'left');
+            }
+          }
+          return 15;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [isTurbo, currentTurn, gameOver, view, playerHand]);
+
+  const loadAllUsers = () => {
+    const users = JSON.parse(localStorage.getItem('domino_users') || '[]');
+    const safeUsers = users.map((u: any) => ({
+      id: u.id,
+      username: u.username,
+      avatar: u.avatar,
+      diamonds: u.diamonds || 500,
+      selectedSkin: u.selectedSkin || 'default',
+      ownedSkins: u.ownedSkins || ['default'],
+      stats: { ...u.stats, streak: u.stats.streak || 0 },
+      createdAt: u.createdAt
+    }));
+    setAllUsers(safeUsers);
+    
+    // Update tournament players
+    if (currentTournament) {
+      const updatedTournament = { ...currentTournament };
+      updatedTournament.players = safeUsers.slice(0, 1000).map(u => ({
+        id: u.id,
+        name: u.username,
+        avatar: u.avatar,
+        wins: u.stats.wins
+      }));
+      setCurrentTournament(updatedTournament);
+    }
   };
-  const botMove = (cb: BE[]) => {
-    setBotHand(prev=>{const ends=getEnds(cb);let bi=-1,bs:"left"|"right"|null=null,bsc=-1;
-    for(let i=0;i<prev.length;i++){const s=canPlay(prev[i],cb,ends);if(s){const sc=(prev[i][0]===prev[i][1]?10:0)+prev[i][0]+prev[i][1];if(sc>bsc){bsc=sc;bi=i;bs=s;}}}
-    if(bi===-1){setPile(cp=>{if(!cp.length){sys(`🤖 ${t.botPast}`);setMyTurn(true);return cp;}const np=[...cp];const dr=np.pop()!;setPileCount(np.length);const ds=canPlay(dr,cb,ends);if(ds){const fl=shouldFlip(dr,ds,ends,false);const nb=ds==="left"?[{tile:dr,flipped:fl},...cb]:[...cb,{tile:dr,flipped:fl}];setBoard(nb);setLastIdx(ds==="left"?0:nb.length-1);playTileSound();sys(`🤖 [${dr[0]}|${dr[1]}]`);setOppCount(prev.length);if(!prev.length){setGameOver("💀");trigEnd(false);}setMyTurn(true);return np;}sys(`🤖 ${t.botPakt}`);setBotHand(bh=>[...bh,dr]);setOppCount(prev.length+1);setMyTurn(true);return np;});return prev;}
-    const bt=prev[bi];const fl=shouldFlip(bt,bs!,ends,cb.length===0);const nb=bs==="left"?[{tile:bt,flipped:fl},...cb]:[...cb,{tile:bt,flipped:fl}];
-    setBoard(nb);setLastIdx(bs==="left"?0:nb.length-1);playTileSound();sys(`🤖 [${bt[0]}|${bt[1]}]`);const nbh=prev.filter((_,i)=>i!==bi);setOppCount(nbh.length);if(!nbh.length){setGameOver("💀");trigEnd(false);}setMyTurn(true);return nbh;});
+
+  const createDefaultTournament = () => {
+    const now = Date.now();
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    setCurrentTournament({
+      id: 'daily',
+      name: 'KURDISH CUP',
+      startTime: now,
+      endTime: endOfDay.getTime(),
+      entryFee: 0,
+      maxPlayers: 1000,
+      players: [],
+      prizes: { first: 10000, second: 5000, third: 2500 },
+      status: 'active'
+    });
   };
-  const bDraw = () => { if(!myTurn||gameOver||!pile.length) return; const np=[...pile];const d=np.pop()!;setPile(np);setHand(p=>[...p,d]);setPileCount(np.length);sys(`📦 [${d[0]}|${d[1]}]`); };
-  const bPass = () => { if(!myTurn||gameOver) return; setMyTurn(false);sys(`⏭️ ${t.gepast}`);setTimeout(()=>botMove(board),800); };
-  const bChat = (s: string) => { if(!s.trim()) return; setMsgs(p=>[...p,{sender:playerName,text:s.trim(),time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}]);setMsg("");setShowEm(false);setTimeout(()=>{const r=["😂","🔥","💯","💪","☀️","👏","👍","😈"];setMsgs(p=>[...p,{sender:"🤖",text:r[Math.floor(Math.random()*r.length)],time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}])},800+Math.random()*1200); };
 
-  const play = (ti:Tile,i:number) => mode==="bot"?bPlay(ti,i):oPlay(i);
-  const draw = () => mode==="bot"?bDraw():oDraw();
-  const pass = () => mode==="bot"?bPass():oPass();
-  const sendC = (s:string) => mode==="bot"?bChat(s):oChat(s);
-  const restart = () => mode==="bot"?startBot():oRestart();
-  const copy = () => {navigator.clipboard.writeText(room).catch(()=>{});setCopied(true);setTimeout(()=>setCopied(false),2000);};
-  const canAny = () => !board.length||hand.some(ti=>canPlay(ti,board,getEnds(board))!==null);
-  const cPile=mode==="bot"?pile.length:pileCount;
-  const cOpp=mode==="bot"?botHand.length:oppCount;
+  // Socket
+  useEffect(() => {
+    const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
+    socketRef.current = socket;
 
-  const HandTile=({v,hl,sm}:{v:Tile;hl?:boolean;sm?:boolean})=>(<div className={`${sm?"w-[32px] h-[64px]":"w-[40px] h-[80px]"} rounded-lg flex flex-col items-center justify-around py-0.5 shadow-lg cursor-pointer select-none border-2 transition-all duration-150 active:scale-90 ${hl?"border-yellow-400 ring-2 ring-yellow-400/60 shadow-yellow-500/40":"border-[#C4B998]"}`} style={{background:"linear-gradient(160deg, #FFFEF5, #F5EDDA)"}}><Dots v={v[0]} sz={sm?12:16}/><div className="w-[60%] h-px bg-[#C4B998]"/><Dots v={v[1]} sz={sm?12:16}/></div>);
-  const Back=()=>(<div className="w-[14px] h-[26px] sm:w-[18px] sm:h-[32px] rounded bg-gradient-to-br from-[#8B0000] to-[#5C0000] border border-[#3D0000] shadow flex items-center justify-center flex-shrink-0"><div className="w-[50%] h-[50%] border border-[#FFD700]/20 rounded-sm"/></div>);
+    socket.on('connect', () => setConnected(true));
+    socket.on('disconnect', () => setConnected(false));
 
-  if (!authLoaded) return <div className="min-h-screen bg-black flex items-center justify-center"><Sun s={60} c="animate-spin opacity-50"/></div>;
+    socket.on('roomCreated', (data) => {
+      setRoomCode(data.roomCode);
+      setIsInRoom(true);
+      setIsHost(true);
+      setPlayersInRoom(data.players || []);
+      setView('waiting');
+    });
 
-  // ✅ LOGIN SCHERM
-  if (!account) {
+    socket.on('roomJoined', (data) => {
+      setRoomCode(data.roomCode);
+      setIsInRoom(true);
+      setIsHost(data.isHost || false);
+      setPlayersInRoom(data.players || []);
+      setView('waiting');
+    });
+
+    socket.on('playerJoined', (data) => {
+      setPlayersInRoom(data.players || []);
+    });
+
+    socket.on('gameStarted', (data) => {
+      setPlayerHand(data.playerHand || []);
+      setOpponentHand(data.opponentHand || []);
+      setBoard([]);
+      setCurrentTurn('player');
+      setGameOver(false);
+      setWinner(null);
+      setView('game');
+    });
+
+    socket.on('moveMade', (data) => {
+      addTileToBoardLocal(data.tile, data.side);
+      setOpponentHand(prev => prev.slice(1));
+      setCurrentTurn('player');
+      setTurnTimer(15);
+    });
+
+    socket.on('chatMessage', (msg: Message) => setMessages(prev => [...prev, msg]));
+
+    return () => socket.disconnect();
+  }, []);
+
+  // Auth
+  const handleLogin = () => {
+    if (!loginUsername.trim() || !loginPassword.trim()) {
+      setAuthError('هەموو فیڵدەکان پێویستن');
+      triggerShake();
+      return;
+    }
+    
+    setIsLoading(true);
+    setTimeout(() => {
+      const users = JSON.parse(localStorage.getItem('domino_users') || '[]');
+      const user = users.find((u: any) => u.username === loginUsername && u.password === loginPassword);
+      
+      if (user) {
+        const safeUser: UserData = { 
+          id: user.id, username: user.username, avatar: user.avatar || '🎲',
+          diamonds: user.diamonds ?? 500,
+          selectedSkin: user.selectedSkin || 'default',
+          ownedSkins: user.ownedSkins || ['default'],
+          stats: { ...user.stats, streak: user.stats.streak || 0 },
+          createdAt: user.createdAt
+        };
+        setCurrentUser(safeUser);
+        localStorage.setItem('domino_user', JSON.stringify(safeUser));
+        setPlayerName(safeUser.username);
+        setAuthError('');
+        setView('loading');
+        setTimeout(() => setView('menu'), 800);
+      } else {
+        setAuthError('ناوی بەکارهێنەر یان وشەی نهێنی هەڵەیە');
+        triggerShake();
+      }
+      setIsLoading(false);
+    }, 1000);
+  };
+
+  const handleRegister = () => {
+    if (!registerUsername.trim() || !registerPassword.trim()) {
+      setAuthError('هەموو فیڵدەکان پێویستن');
+      triggerShake();
+      return;
+    }
+    if (registerPassword !== registerConfirm) {
+      setAuthError('وشەی نهێنی یەک نینن');
+      triggerShake();
+      return;
+    }
+    if (registerUsername.length < 3) {
+      setAuthError('ناوی بەکارهێنەر دەبێت لانیکەم ٣ پیت بێت');
+      triggerShake();
+      return;
+    }
+    
+    setIsLoading(true);
+    setTimeout(() => {
+      const users = JSON.parse(localStorage.getItem('domino_users') || '[]');
+      if (users.find((u: any) => u.username === registerUsername)) {
+        setAuthError('ئەم ناوی بەکارهێنەرە پێشتر هەیە');
+        triggerShake();
+        setIsLoading(false);
+        return;
+      }
+      
+      const newUser = {
+        id: Date.now().toString(),
+        username: registerUsername,
+        password: registerPassword,
+        avatar: selectedAvatar,
+        diamonds: 500,
+        selectedSkin: 'default',
+        ownedSkins: ['default'],
+        stats: { wins: 0, losses: 0, games: 0, streak: 0 },
+        createdAt: new Date().toISOString()
+      };
+      
+      users.push(newUser);
+      localStorage.setItem('domino_users', JSON.stringify(users));
+      
+      const safeUser: UserData = { 
+        id: newUser.id, username: newUser.username, avatar: newUser.avatar,
+        diamonds: newUser.diamonds, selectedSkin: newUser.selectedSkin,
+        ownedSkins: newUser.ownedSkins, stats: newUser.stats,
+        createdAt: newUser.createdAt
+      };
+      setCurrentUser(safeUser);
+      localStorage.setItem('domino_user', JSON.stringify(safeUser));
+      setPlayerName(safeUser.username);
+      setAuthError('');
+      setView('loading');
+      setTimeout(() => setView('menu'), 800);
+      setIsLoading(false);
+      loadAllUsers();
+    }, 1000);
+  };
+
+  const triggerShake = () => {
+    setShakeLogin(true);
+    setTimeout(() => setShakeLogin(false), 500);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('domino_user');
+    setView('login');
+    setLoginUsername('');
+    setLoginPassword('');
+  };
+
+  // Game functions
+  const createDeck = (): Tile[] => {
+    const deck: Tile[] = [];
+    for (let i = 0; i <= 6; i++) {
+      for (let j = i; j <= 6; j++) {
+        deck.push([i, j]);
+      }
+    }
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck;
+  };
+
+  const startGame = (mode: 'quick' | 'ranked' | 'turbo' | 'bot', difficulty?: 'easy' | 'medium' | 'hard') => {
+    const deck = createDeck();
+    setGameMode(mode);
+    setIsTurbo(mode === 'turbo');
+    setTurnTimer(15);
+    
+    if (mode === 'bot') {
+      setBotDifficulty(difficulty || 'medium');
+    }
+    
+    setPlayerHand(deck.slice(0, 7));
+    setOpponentHand(deck.slice(7, 14));
+    setBoard([]);
+    setCurrentTurn('player');
+    setGameOver(false);
+    setWinner(null);
+    setMessages([]);
+    setRoundNumber(prev => prev + 1);
+    setView('game');
+  };
+
+  const getBoardEnds = (): { left: Tile | null, right: Tile | null } => {
+    if (board.length === 0) return { left: null, right: null };
+    return { left: board[0].tile, right: board[board.length - 1].tile };
+  };
+
+  const canPlayTile = (tile: Tile, side: 'left' | 'right'): boolean => {
+    if (board.length === 0) return true;
+    const ends = getBoardEnds();
+    const target = side === 'left' ? ends.left : ends.right;
+    if (!target) return true;
+    return tile[0] === target[0] || tile[0] === target[1] || tile[1] === target[0] || tile[1] === target[1];
+  };
+
+  const getPlayableSides = (tile: Tile): ('left' | 'right' | 'both' | 'none') => {
+    const canLeft = canPlayTile(tile, 'left');
+    const canRight = canPlayTile(tile, 'right');
+    if (canLeft && canRight) return 'both';
+    if (canLeft) return 'left';
+    if (canRight) return 'right';
+    return 'none';
+  };
+
+  const addTileToBoardLocal = (tile: Tile, side: 'left' | 'right') => {
+    setBoard(prev => {
+      if (prev.length === 0) return [{ tile, side: 'right' }];
+      if (side === 'left') return [{ tile, side: 'left' }, ...prev];
+      return [...prev, { tile, side: 'right' }];
+    });
+  };
+
+  const playTile = (tile: Tile, index: number, side: 'left' | 'right') => {
+    if (currentTurn !== 'player' || gameOver) return;
+    if (!canPlayTile(tile, side)) return;
+    
+    if (gameMode !== 'bot' && socketRef.current) {
+      socketRef.current.emit('makeMove', { roomCode, tile, side, handIndex: index });
+    }
+    
+    addTileToBoardLocal(tile, side);
+    const newHand = playerHand.filter((_, i) => i !== index);
+    setPlayerHand(newHand);
+    setTurnTimer(15);
+    
+    if (soundEnabled) playMoveSound();
+    
+    if (newHand.length === 0) {
+      handleWin();
+      return;
+    }
+    
+    setCurrentTurn('opponent');
+    if (gameMode === 'bot') {
+      setTimeout(() => botPlay(), isTurbo ? 500 : 1000);
+    }
+  };
+
+  const handleWin = () => {
+    setGameOver(true);
+    setWinner('player');
+    
+    // Calculate diamonds
+    let diamondReward = 100; // Base reward
+    if (gameMode === 'ranked') diamondReward = 150;
+    if (gameMode === 'turbo') diamondReward = 200;
+    
+    // Win streak bonus
+    if (currentUser) {
+      const newStreak = (currentUser.stats.streak || 0) + 1;
+      const streakBonus = Math.min(newStreak * 10, 100); // Max 100 bonus
+      diamondReward += streakBonus;
+      
+      const updated: UserData = {
+        ...currentUser,
+        diamonds: currentUser.diamonds + diamondReward,
+        stats: {
+          wins: currentUser.stats.wins + 1,
+          losses: currentUser.stats.losses,
+          games: currentUser.stats.games + 1,
+          streak: newStreak
+        }
+      };
+      setCurrentUser(updated);
+      localStorage.setItem('domino_user', JSON.stringify(updated));
+      
+      // Update in storage
+      const users = JSON.parse(localStorage.getItem('domino_users') || '[]');
+      const idx = users.findIndex((u: any) => u.id === currentUser.id);
+      if (idx !== -1) {
+        users[idx] = { ...users[idx], ...updated };
+        localStorage.setItem('domino_users', JSON.stringify(users));
+      }
+      
+      // Show reward
+      addSystemMessage(`🏆 بریار! +${diamondReward} 💎 (Win streak: ${newStreak}x)`);
+    }
+    
+    if (soundEnabled) playWinSound();
+  };
+
+  const handleLose = () => {
+    setGameOver(true);
+    setWinner('opponent');
+    
+    // Reset streak
+    if (currentUser) {
+      const updated: UserData = {
+        ...currentUser,
+        stats: {
+          ...currentUser.stats,
+          losses: currentUser.stats.losses + 1,
+          games: currentUser.stats.games + 1,
+          streak: 0
+        }
+      };
+      setCurrentUser(updated);
+      localStorage.setItem('domino_user', JSON.stringify(updated));
+      
+      const users = JSON.parse(localStorage.getItem('domino_users') || '[]');
+      const idx = users.findIndex((u: any) => u.id === currentUser.id);
+      if (idx !== -1) {
+        users[idx] = { ...users[idx], ...updated };
+        localStorage.setItem('domino_users', JSON.stringify(users));
+      }
+    }
+    
+    if (soundEnabled) playLoseSound();
+    triggerLoseAnimation();
+  };
+
+  const botPlay = () => {
+    if (gameOver || currentTurn !== 'opponent') return;
+    
+    let possibleMoves: Array<{tile: Tile, index: number, side: 'left' | 'right'}> = [];
+    
+    opponentHand.forEach((tile, index) => {
+      if (canPlayTile(tile, 'left')) possibleMoves.push({ tile, index, side: 'left' });
+      if (canPlayTile(tile, 'right')) possibleMoves.push({ tile, index, side: 'right' });
+    });
+    
+    if (possibleMoves.length === 0) {
+      handleWin();
+      return;
+    }
+    
+    let chosenMove = possibleMoves[0];
+    if (botDifficulty === 'easy') {
+      chosenMove = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+    } else if (botDifficulty === 'medium') {
+      const doubles = possibleMoves.filter(m => m.tile[0] === m.tile[1]);
+      chosenMove = doubles.length > 0 ? doubles[0] : possibleMoves[0];
+    } else {
+      const scored = possibleMoves.map(m => ({
+        ...m,
+        score: m.tile[0] + m.tile[1] + (m.tile[0] === m.tile[1] ? 10 : 0)
+      }));
+      scored.sort((a, b) => b.score - a.score);
+      chosenMove = scored[0];
+    }
+    
+    addTileToBoardLocal(chosenMove.tile, chosenMove.side);
+    const newBotHand = opponentHand.filter((_, i) => i !== chosenMove.index);
+    setOpponentHand(newBotHand);
+    
+    if (soundEnabled) playMoveSound();
+    
+    if (newBotHand.length === 0) {
+      handleLose();
+      return;
+    }
+    
+    setCurrentTurn('player');
+    setTurnTimer(15);
+  };
+
+  // Sounds
+  const playMoveSound = () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.05);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {}
+  };
+
+  const playWinSound = () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      [523, 659, 784, 1047].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.1);
+        gain.gain.setValueAtTime(0.1, ctx.currentTime + i * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.1 + 0.2);
+        osc.start(ctx.currentTime + i * 0.1);
+        osc.stop(ctx.currentTime + i * 0.1 + 0.2);
+      });
+    } catch (e) {}
+  };
+
+  const playLoseSound = () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      [400, 350, 300, 250].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
+        gain.gain.setValueAtTime(0.1, ctx.currentTime + i * 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.3);
+        osc.start(ctx.currentTime + i * 0.15);
+        osc.stop(ctx.currentTime + i * 0.15 + 0.3);
+      });
+    } catch (e) {}
+  };
+
+  const triggerLoseAnimation = () => {
+    setShowLaugh(true);
+    setTimeout(() => setShowLaugh(false), 4000);
+  };
+
+  const addSystemMessage = (text: string) => {
+    setMessages(prev => [...prev, {
+      sender: 'سیستەم',
+      text,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }]);
+  };
+
+  // Multiplayer
+  const handleCreateRoom = () => {
+    if (!connected) return alert('پەیوەندی نییە!');
+    setGameMode('quick');
+    socketRef.current?.emit('createRoom', { playerName });
+  };
+
+  const handleJoinRoom = () => {
+    if (!connected) return alert('پەیوەندی نییە!');
+    if (!inputCode.trim()) return alert('کۆدەکە بنووسە!');
+    socketRef.current?.emit('joinRoom', { roomCode: inputCode.trim().toUpperCase(), playerName });
+    setInputCode('');
+  };
+
+  const handleStartGame = () => {
+    if (playersInRoom.length < 2) return alert('چاوەڕوانی یاریزانێکی دیە!');
+    socketRef.current?.emit('startGame', { roomCode });
+  };
+
+  const sendChat = (text: string) => {
+    if (!text.trim()) return;
+    const msg: Message = { 
+      sender: playerName, 
+      text, 
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+    };
+    if (roomCode && socketRef.current) {
+      socketRef.current.emit('sendMessage', { roomCode, msg });
+    }
+    setMessages(prev => [...prev, msg]);
+    setCurrentMsg('');
+  };
+
+  // Store
+  const buySkin = (skin: Skin) => {
+    if (!currentUser) return;
+    if (currentUser.ownedSkins.includes(skin.id)) {
+      // Equip
+      const updated = { ...currentUser, selectedSkin: skin.id };
+      setCurrentUser(updated);
+      localStorage.setItem('domino_user', JSON.stringify(updated));
+      addSystemMessage(`✅ پێکهاتەی "${skin.name}" چالاک کرا!`);
+    } else if (currentUser.diamonds >= skin.price) {
+      // Buy
+      const updated = {
+        ...currentUser,
+        diamonds: currentUser.diamonds - skin.price,
+        ownedSkins: [...currentUser.ownedSkins, skin.id],
+        selectedSkin: skin.id
+      };
+      setCurrentUser(updated);
+      localStorage.setItem('domino_user', JSON.stringify(updated));
+      
+      const users = JSON.parse(localStorage.getItem('domino_users') || '[]');
+      const idx = users.findIndex((u: any) => u.id === currentUser.id);
+      if (idx !== -1) {
+        users[idx] = { ...users[idx], ...updated };
+        localStorage.setItem('domino_users', JSON.stringify(users));
+      }
+      
+      addSystemMessage(`🎉 "${skin.name}" کڕی! -${skin.price} 💎`);
+    } else {
+      addSystemMessage(`❌ 💎 پێویستە!`);
+    }
+  };
+
+  // Stats
+  const getFilteredAndSortedUsers = () => {
+    let filtered = allUsers.filter(user => 
+      user.username.toLowerCase().includes(statsSearch.toLowerCase())
+    );
+    
+    filtered.sort((a, b) => {
+      switch (statsSortBy) {
+        case 'wins': return b.stats.wins - a.stats.wins;
+        case 'games': return b.stats.games - a.stats.games;
+        case 'losses': return b.stats.losses - a.stats.losses;
+        case 'diamonds': return b.diamonds - a.diamonds;
+        case 'winrate':
+          const rateA = a.stats.games > 0 ? (a.stats.wins / a.stats.games) : 0;
+          const rateB = b.stats.games > 0 ? (b.stats.wins / b.stats.games) : 0;
+          return rateB - rateA;
+        default: return 0;
+      }
+    });
+    
+    return filtered;
+  };
+
+  const calculateWinRate = (user: UserData) => {
+    if (user.stats.games === 0) return 0;
+    return Math.round((user.stats.wins / user.stats.games) * 100);
+  };
+
+  const getRank = (index: number) => {
+    if (index === 0) return '🥇';
+    if (index === 1) return '🥈';
+    if (index === 2) return '🥉';
+    return `#${index + 1}`;
+  };
+
+  const avatars = ['😎', '🎮', '🏆', '🔥', '💫', '🌟', '👾', '🤖', '👊', '💪', '🎯', '🎲', '🃏', '👑', '💎', '⚡', '🎲', '🎯', '🏆', '👑'];
+
+  // ==================== DOMINO TILE ====================
+  const DominoTile = ({ 
+    tile, onClick, size = 'normal', disabled = false, showButtons = false, onPlayLeft, onPlayRight
+  }: { 
+    tile: Tile, onClick?: () => void, size?: 'small' | 'normal' | 'large', disabled?: boolean,
+    showButtons?: boolean, onPlayLeft?: () => void, onPlayRight?: () => void
+  }) => {
+    const getDotPositions = (n: number): number[] => {
+      const dots: { [key: number]: number[] } = {
+        0: [], 1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8]
+      };
+      return dots[n] || [];
+    };
+    
+    const sizeConfig = {
+      small: { width: 'w-8', height: 'h-14', dot: 'w-1 h-1', grid: 'w-4 h-4' },
+      normal: { width: 'w-10', height: 'h-18', dot: 'w-1.5 h-1.5', grid: 'w-5 h-5' },
+      large: { width: 'w-14', height: 'h-24', dot: 'w-2 h-2', grid: 'w-7 h-7' },
+      xlarge: { width: 'w-16', height: 'h-28', dot: 'w-2.5 h-2.5', grid: 'w-8 h-8' }
+    };
+    
+    const config = sizeConfig[size];
+    
+    const renderDots = (value: number) => (
+      <div className={`grid grid-cols-3 gap-0.5 ${config.grid}`}>
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((pos) => (
+          <div key={pos} className={`${config.dot} rounded-full ${getDotPositions(value).includes(pos) ? 'bg-gray-800' : 'transparent'}`} />
+        ))}
+      </div>
+    );
+    
     return (
-      <main className="min-h-[100dvh] flex flex-col items-center justify-center relative overflow-hidden">
-        <div className="fixed inset-0 z-0"><div className="absolute top-0 left-0 right-0 h-1/3 bg-[#ED2024]"/><div className="absolute top-1/3 left-0 right-0 h-1/3 bg-white"/><div className="absolute top-2/3 left-0 right-0 h-1/3 bg-[#21A038]"/><div className="absolute inset-0 flex items-center justify-center"><Sun s={300} c="opacity-30"/></div></div>
-        <div className="fixed inset-0 z-[1] bg-black/40"/>
-        <div className="fixed top-3 right-3 flex gap-1.5 z-50"><button onClick={()=>setLang("KU")} className={`px-3 py-1 rounded-full font-bold text-xs ${lang==="KU"?"bg-yellow-500 text-black":"bg-black/40 text-white/60"}`}>کوردی</button><button onClick={()=>setLang("NL")} className={`px-3 py-1 rounded-full font-bold text-xs ${lang==="NL"?"bg-yellow-500 text-black":"bg-black/40 text-white/60"}`}>NL</button></div>
-        <div className="relative z-10 w-full max-w-[360px] px-4">
-          <div className="text-center mb-6"><Sun s={80} c="mx-auto mb-2 opacity-90"/><h1 className="text-5xl sm:text-6xl font-black text-white italic drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]">DOMINO</h1><p className="text-white/60 text-xs mt-2">{t.welkom} Domino ☀️</p></div>
-          <div className="bg-gradient-to-b from-white/10 to-white/5 backdrop-blur-xl rounded-3xl border border-white/20 shadow-2xl overflow-hidden">
-            <div className="flex"><button onClick={()=>{setAuthMode("create");setAuthStep(1);setAuthErr("")}} className={`flex-1 py-3.5 text-sm font-black transition-all ${authMode==="create"?"bg-yellow-500 text-black":"bg-transparent text-white/40"}`}>✨ {t.maakAcc}</button><button onClick={()=>{setAuthMode("login");setAuthStep(2);setAuthErr("")}} className={`flex-1 py-3.5 text-sm font-black transition-all ${authMode==="login"?"bg-yellow-500 text-black":"bg-transparent text-white/40"}`}>🔑 {t.login}</button></div>
-            <div className="p-5">
-              {authMode==="create"&&authStep===1&&(<div className="animate-fadeIn"><p className="text-white/70 text-xs text-center mb-4 font-bold">{t.kiesAvatar}</p><div className="flex justify-center mb-4"><div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-5xl shadow-xl shadow-yellow-500/30 border-4 border-yellow-300">{authAvatar}</div></div><div className="grid grid-cols-8 gap-2 mb-5">{avatars.map(a=>(<button key={a} onClick={()=>setAuthAvatar(a)} className={`text-2xl p-1.5 rounded-xl transition-all ${authAvatar===a?"bg-yellow-500 scale-110 shadow-lg ring-2 ring-yellow-300":"bg-white/5 active:scale-95"}`}>{a}</button>))}</div><button onClick={()=>setAuthStep(2)} className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-black py-3.5 rounded-2xl text-sm shadow-lg active:scale-[0.98]">{lang==="KU"?"دواتر →":"Volgende →"}</button></div>)}
-              {authStep===2&&(<div className="animate-fadeIn">{authMode==="create"&&<div className="flex justify-center mb-4"><button onClick={()=>setAuthStep(1)} className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-3xl shadow-lg border-2 border-yellow-300 active:scale-95">{authAvatar}</button></div>}{authMode==="login"&&<div className="flex justify-center mb-4"><div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-3xl shadow-lg border-2 border-blue-300">🔑</div></div>}<div className="relative mb-3"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">👤</div><input type="text" placeholder={t.gebruiker} value={authUser} onChange={e=>{setAuthUser(e.target.value);setAuthErr("")}} className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white font-bold text-sm placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-yellow-500/50"/></div><div className="relative mb-3"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-sm">🔒</div><input type="password" placeholder={t.wachtwoord} value={authPass} onChange={e=>{setAuthPass(e.target.value);setAuthErr("")}} onKeyDown={e=>{if(e.key==="Enter")handleAuth()}} className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white font-bold text-sm placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-yellow-500/50"/></div>{authErr&&<div className="bg-red-500/20 border border-red-500/30 rounded-xl px-3 py-2 mb-3 animate-shake"><p className="text-red-400 text-xs text-center font-bold">⚠️ {authErr}</p></div>}<button onClick={handleAuth} className={`w-full font-black py-3.5 rounded-2xl text-sm shadow-lg active:scale-[0.98] mb-3 ${authMode==="create"?"bg-gradient-to-r from-yellow-500 to-orange-500 text-black":"bg-gradient-to-r from-blue-500 to-blue-700 text-white"}`}>{authMode==="create"?`✨ ${t.maakAcc}`:`🔑 ${t.login}`}</button><button onClick={()=>{setAuthMode(authMode==="login"?"create":"login");setAuthStep(authMode==="login"?1:2);setAuthErr("")}} className="w-full text-white/30 text-xs text-center py-1">{authMode==="login"?`${t.geenAcc}`:t.heb}</button></div>)}
-              <button onClick={()=>saveAccount({username:"Gast_"+Math.floor(Math.random()*999),wins:0,losses:0,games:0,avatar:"👤",created:Date.now()})} className="w-full text-white/20 text-[10px] text-center py-2 mt-2">{t.ofGast}</button>
-            </div>
-          </div>
-          <p className="text-white/15 text-[10px] text-center mt-4">☀️ Biji Kurdistan</p>
+      <div className="flex flex-col items-center gap-1">
+        <div
+          onClick={disabled ? undefined : onClick}
+          className={`
+            ${config.width} ${config.height}
+            bg-gradient-to-b from-white via-gray-50 to-gray-200
+            rounded-lg border-2 border-gray-400 shadow-lg flex flex-col
+            ${!disabled && onClick ? 'cursor-pointer hover:shadow-xl hover:scale-105 active:scale-95' : ''}
+            ${disabled ? 'opacity-50' : ''}
+            transition-all duration-150
+          `}
+        >
+          <div className="flex-1 flex items-center justify-center border-b-2 border-gray-300">{renderDots(tile[0])}</div>
+          <div className="flex-1 flex items-center justify-center">{renderDots(tile[1])}</div>
         </div>
-        <style jsx>{`@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.animate-fadeIn{animation:fadeIn .3s ease-out}@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}.animate-shake{animation:shake .4s ease-out}`}</style>
-      </main>
+        
+        {showButtons && !disabled && (
+          <div className="flex gap-1">
+            {onPlayLeft && (
+              <button onClick={onPlayLeft} className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1 rounded font-bold animate-pulse">
+                ⬅️
+              </button>
+            )}
+            {onPlayRight && (
+              <button onClick={onPlayRight} className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1 rounded font-bold animate-pulse">
+                ➡️
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ==================== BOARD TILE ====================
+  const BoardTileDisplay = ({ tile, isFirst, isLast }: { tile: Tile, isFirst: boolean, isLast: boolean }) => {
+    const getDotPositions = (n: number): number[] => {
+      const dots: { [key: number]: number[] } = {
+        0: [], 1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8]
+      };
+      return dots[n] || [];
+    };
+    
+    return (
+      <div className={`
+        w-12 h-20 md:w-14 md:h-24
+        bg-gradient-to-b from-white via-gray-50 to-gray-200
+        rounded-lg border-2 border-gray-400 shadow-lg flex flex-col flex-shrink-0
+        ${isFirst ? 'border-l-4 border-l-green-500' : ''}
+        ${isLast ? 'border-r-4 border-r-green-500' : ''}
+      `}>
+        <div className="flex-1 flex items-center justify-center border-b-2 border-gray-300">
+          <div className="grid grid-cols-3 gap-0.5 w-6 h-6">
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((pos) => (
+              <div key={pos} className={`w-1.5 h-1.5 rounded-full ${getDotPositions(tile[0]).includes(pos) ? 'bg-gray-800' : 'transparent'}`} />
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="grid grid-cols-3 gap-0.5 w-6 h-6">
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((pos) => (
+              <div key={pos} className={`w-1.5 h-1.5 rounded-full ${getDotPositions(tile[1]).includes(pos) ? 'bg-gray-800' : 'transparent'}`} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ==================== KURDISTAN BACKGROUND ====================
+  const KurdistanBackground = ({ opacity = 0.15 }: { opacity?: number }) => (
+    <div className="fixed inset-0 -z-10 overflow-hidden">
+      <div className="absolute inset-0" style={{
+        background: `linear-gradient(180deg, #ED1C24 0%, #ED1C24 33%, #FFFFFF 33%, #FFFFFF 66%, #278E43 66%, #278E43 100%)`,
+        opacity
+      }} />
+      <div className="absolute inset-0 flex items-center justify-center" style={{ opacity: opacity * 2 }}>
+        <div className="w-40 h-40 md:w-60 md:h-60 rounded-full animate-pulse" style={{
+          background: `radial-gradient(circle, #FFC800 0%, #FFC800 30%, rgba(255, 200, 0, 0.5) 50%, transparent 70%)`,
+          boxShadow: '0 0 150px 75px rgba(255, 200, 0, 0.2)'
+        }} />
+      </div>
+    </div>
+  );
+
+  // ==================== DIAMOND BADGE ====================
+  const DiamondBadge = ({ diamonds, size = 'normal' }: { diamonds: number, size?: 'small' | 'normal' | 'large' }) => {
+    const sizeClasses = {
+      small: 'text-sm px-2 py-1',
+      normal: 'text-base px-3 py-1.5',
+      large: 'text-xl px-4 py-2'
+    };
+    
+    return (
+      <div className={`inline-flex items-center gap-1 bg-purple-600/80 backdrop-blur-sm rounded-full ${sizeClasses[size]} text-white font-bold border border-purple-400`}>
+        <span>💎</span>
+        <span>{diamonds.toLocaleString()}</span>
+      </div>
+    );
+  };
+
+  // ==================== LOADING SCREEN ====================
+  if (view === 'loading') {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center">
+        <KurdistanBackground opacity={0.3} />
+        <div className="relative z-10 text-center">
+          <div className="text-8xl mb-6 animate-bounce">🎲</div>
+          <h1 className="text-5xl md:text-6xl font-black italic mb-4 animate-pulse" 
+              style={{ color: '#FFC800', textShadow: '3px 3px 0 #ED1C24, 6px 6px 0 #278E43' }}>
+            DOMINO
+          </h1>
+          <p className="text-white font-bold text-xl mb-8 animate-pulse">دومینۆی کوردستان</p>
+          <div className="w-64 h-3 bg-white/20 rounded-full mx-auto overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 rounded-full animate-pulse" />
+          </div>
+        </div>
+      </div>
     );
   }
 
-  // ✅ INGELOGD
-  return (
-    <main className="min-h-[100dvh] flex flex-col items-center justify-center relative overflow-hidden">
-      {showLaugh&&<LaughOverlay onClose={()=>setShowLaugh(false)} lang={lang}/>}
-      {showWin&&<><Confetti/><WinOverlay onClose={()=>setShowWin(false)} lang={lang}/></>}
+  // ==================== LOGIN SCREEN ====================
+  if (view === 'login') {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center p-4">
+        <KurdistanBackground opacity={0.25} />
+        
+        <style jsx>{`
+          @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(10deg); }
+          }
+          @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+          }
+          @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+          }
+          .animate-shake { animation: shake 0.5s ease-in-out; }
+          .animate-slide-up { animation: slideUp 0.6s ease-out; }
+          .animate-scale-in { animation: scaleIn 0.5s ease-out; }
+        `}</style>
 
-      <div className="fixed inset-0 z-0"><div className="absolute top-0 left-0 right-0 h-1/3 bg-[#ED2024]"/><div className="absolute top-1/3 left-0 right-0 h-1/3 bg-white"/><div className="absolute top-2/3 left-0 right-0 h-1/3 bg-[#21A038]"/><div className="absolute inset-0 flex items-center justify-center"><Sun s={view==="menu"||view==="scores"?250:400} c={view==="menu"||view==="scores"?"opacity-35":"opacity-[0.12]"}/></div></div>
-      {view==="game"&&<div className="fixed inset-0 z-[1] bg-black/40"/>}
-      {view==="scores"&&<div className="fixed inset-0 z-[1] bg-black/50"/>}
+        <div className="relative z-10 w-full max-w-md animate-scale-in">
+          <div className="text-center mb-8 animate-slide-up">
+            <div className="inline-block p-6 bg-white/10 rounded-full backdrop-blur-sm mb-4 border-4 border-yellow-500/50">
+              <div className="text-7xl md:text-8xl">🎲</div>
+            </div>
+            <h1 className="text-5xl md:text-7xl font-black italic mb-2" 
+                style={{ color: '#FFC800', textShadow: '3px 3px 0 #ED1C24, 6px 6px 0 #278E43' }}>
+              DOMINO
+            </h1>
+            <p className="text-white font-bold text-lg">🇨🇺 دومینۆی کوردستان 🇨🇺</p>
+          </div>
 
-      <div className="fixed top-2 right-2 flex gap-1 z-50">
-        {(view==="menu"||view==="scores")&&<div className="flex items-center gap-1 bg-black/50 px-2 py-0.5 rounded-full mr-1"><div className={`w-2 h-2 rounded-full ${status==="on"?"bg-green-400 animate-pulse":"bg-red-500"}`}/></div>}
-        <button onClick={()=>setLang("KU")} className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${lang==="KU"?"bg-yellow-500 text-black":"bg-black/40 text-white/60"}`}>کوردی</button>
-        <button onClick={()=>setLang("NL")} className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${lang==="NL"?"bg-yellow-500 text-black":"bg-black/40 text-white/60"}`}>NL</button>
-      </div>
+          <div className={`bg-white/95 backdrop-blur-lg rounded-3xl p-6 md:p-8 shadow-2xl border-4 border-yellow-500 ${shakeLogin ? 'animate-shake' : ''}`}>
+            <div className="flex mb-6 bg-gray-100 rounded-xl p-1">
+              <button
+                onClick={() => { setIsRegister(false); setAuthError(''); }}
+                className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${
+                  !isRegister ? 'bg-green-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                🎮 چونە ناو
+              </button>
+              <button
+                onClick={() => { setIsRegister(true); setAuthError(''); }}
+                className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${
+                  isRegister ? 'bg-green-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                📝 هەژمار بسازە
+              </button>
+            </div>
 
-      {/* ✅ SCOREBORD VIEW */}
-      {view === "scores" && (
-        <Scorebord lang={lang} onBack={() => setView("menu")} currentUser={account.username} />
-      )}
+            {authError && (
+              <div className="bg-red-50 border-2 border-red-400 text-red-700 px-4 py-3 rounded-xl mb-4 flex items-center gap-2">
+                <span className="text-xl">⚠️</span>
+                <span className="font-bold text-sm">{authError}</span>
+              </div>
+            )}
 
-      {/* MENU */}
-      {view === "menu" && (
-        <div className="flex flex-col items-center z-10 w-full max-w-[300px] px-5 py-3">
-          <div className="relative mb-1"><Sun s={60} c="absolute -top-1 left-1/2 -translate-x-1/2 opacity-80"/><h1 className="text-[40px] font-black text-white italic drop-shadow-[0_3px_8px_rgba(0,0,0,0.6)] relative z-10">DOMINO</h1></div>
-          <p className="text-white/80 text-[10px] mb-3 font-bold bg-black/30 px-3 py-1 rounded-full">☀️ 28 {t.stenen} • 7 {t.perSpeler}</p>
-
-          {/* Account card */}
-          <div className="w-full bg-gradient-to-r from-white/10 to-white/5 backdrop-blur-sm rounded-2xl p-3 mb-3 border border-white/10">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-xl shadow-lg border-2 border-yellow-300/50">{account.avatar}</div>
+            {isRegister ? (
+              <div className="space-y-4">
                 <div>
-                  <div className="text-white font-black text-sm">{account.username}</div>
-                  <div className="flex gap-2 text-[9px]"><span className="text-green-400">🏆{account.wins}</span><span className="text-red-400">💀{account.losses}</span><span className="text-white/30">🎮{account.games}</span></div>
+                  <label className="block text-sm font-bold mb-3 text-gray-700">هەیبەتەکەت هەڵبژێرە</label>
+                  <div className="grid grid-cols-8 gap-2">
+                    {avatars.map((avatar) => (
+                      <button
+                        key={avatar}
+                        onClick={() => setSelectedAvatar(avatar)}
+                        className={`text-2xl p-2 rounded-xl transition-all transform hover:scale-110 ${
+                          selectedAvatar === avatar 
+                            ? 'bg-yellow-400 scale-110 shadow-lg ring-2 ring-yellow-500' 
+                            : 'bg-gray-100 hover:bg-gray-200'
+                        }`}
+                      >
+                        {avatar}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold mb-2 text-gray-700">ناوی بەکارهێنەر</label>
+                  <input
+                    type="text"
+                    value={registerUsername}
+                    onChange={(e) => setRegisterUsername(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none"
+                    placeholder="لانیکەم ٣ پیت..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold mb-2 text-gray-700">وشەی نهێنی</label>
+                  <input
+                    type="password"
+                    value={registerPassword}
+                    onChange={(e) => setRegisterPassword(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none"
+                    placeholder="لانیکەم ٤ پیت..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold mb-2 text-gray-700">دووبارە وشەی نهێنی</label>
+                  <input
+                    type="password"
+                    value={registerConfirm}
+                    onChange={(e) => setRegisterConfirm(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none"
+                    placeholder="دووبارە وشەی نهێنی..."
+                    onKeyPress={(e) => e.key === 'Enter' && handleRegister()}
+                  />
+                </div>
+
+                <button
+                  onClick={handleRegister}
+                  disabled={isLoading}
+                  className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 rounded-xl border-b-4 border-green-700 transition-all transform hover:scale-105 active:scale-95 disabled:opacity-50 shadow-lg"
+                >
+                  {isLoading ? '⏳ دروستکردن...' : `${selectedAvatar} هەژمار بسازە`}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold mb-2 text-gray-700">ناوی بەکارهێنەر</label>
+                  <input
+                    type="text"
+                    value={loginUsername}
+                    onChange={(e) => setLoginUsername(e.target.value)}
+                    className="w-full px-4 py-4 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none text-lg"
+                    placeholder="ناوی بەکارهێنەر..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold mb-2 text-gray-700">وشەی نهێنی</label>
+                  <input
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="w-full px-4 py-4 rounded-xl border-2 border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none text-lg"
+                    placeholder="وشەی نهێنی..."
+                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                  />
+                </div>
+
+                <button
+                  onClick={handleLogin}
+                  disabled={isLoading}
+                  className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 rounded-xl border-b-4 border-green-700 transition-all transform hover:scale-105 active:scale-95 disabled:opacity-50 shadow-lg text-lg"
+                >
+                  {isLoading ? '⏳ چاوەڕوان بە...' : '🎮 چونە ناو'}
+                </button>
+              </div>
+            )}
+
+            {!isRegister && (
+              <div className="mt-6 p-3 bg-blue-50 rounded-xl border border-blue-200">
+                <p className="text-blue-800 text-sm text-center">
+                  💡 بۆ تاقیکردنەوە: <strong>test</strong> / <strong>test</strong>
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================== MAIN MENU - LIKE PHOTO 2 ====================
+  if (view === 'menu') {
+    return (
+      <div className="min-h-screen relative">
+        {/* Background - wooden table with dominoes */}
+        <div className="fixed inset-0 -z-10" style={{
+          background: `linear-gradient(135deg, #3d2914 0%, #5c3d1e 50%, #2d1f0f 100%)`
+        }}>
+          {/* Domino pattern overlay */}
+          <div className="absolute inset-0 opacity-10" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+          }} />
+        </div>
+        
+        <LaughOverlay />
+        
+        <div className="relative z-10 min-h-screen p-4">
+          {/* Top Bar */}
+          <div className="flex justify-between items-center mb-6">
+            {/* User Info */}
+            {currentUser && (
+              <div className="flex items-center gap-3">
+                <div className="text-4xl">{currentUser.avatar}</div>
+                <div>
+                  <div className="font-bold text-white text-lg">{currentUser.username}</div>
+                  <div className="flex items-center gap-2">
+                    <DiamondBadge diamonds={currentUser.diamonds} size="small" />
+                    {currentUser.stats.streak > 0 && (
+                      <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">
+                        🔥 {currentUser.stats.streak}x
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <button onClick={logout} className="text-white/20 text-[9px] bg-white/5 px-2 py-1 rounded-lg">{t.uitloggen}</button>
+            )}
+            
+            {/* Top Right */}
+            <div className="flex items-center gap-3">
+              <button onClick={handleLogout} className="bg-red-500/80 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm">
+                چونە دەرەوە
+              </button>
             </div>
           </div>
-
-          {/* ✅ Scorebord knop */}
-          <button onClick={() => setView("scores")} className="w-full bg-gradient-to-b from-yellow-500 to-yellow-700 text-black font-black py-3 rounded-2xl border-b-4 border-yellow-900 mb-2 active:translate-y-0.5 active:border-b-2 shadow-xl text-sm">
-            🏆 {t.scorebord}
-          </button>
-
-          <button onClick={startBot} className="w-full bg-gradient-to-b from-blue-500 to-blue-700 text-white font-black py-3 rounded-2xl border-b-4 border-blue-900 mb-2 active:translate-y-0.5 active:border-b-2 shadow-xl text-sm">🤖 {t.tegenBot}</button>
-          <button onClick={oCreate} className="w-full bg-gradient-to-b from-green-500 to-green-700 text-white font-black py-3 rounded-2xl border-b-4 border-green-900 mb-2 active:translate-y-0.5 active:border-b-2 shadow-xl text-sm">🏠 {t.kamerMaken}</button>
-          <div className="bg-gradient-to-b from-purple-500 to-purple-700 p-3 rounded-2xl border-b-4 border-purple-900 w-full shadow-xl">
-            <input type="text" placeholder="CODE..." value={input} onChange={e=>setInput(e.target.value.toUpperCase())} className="w-full p-2.5 rounded-xl text-center font-bold mb-1.5 uppercase text-black bg-white border-2 border-purple-300 text-lg tracking-[0.3em]" maxLength={5}/>
-            {joinErr&&<p className="text-white text-[10px] text-center mb-1.5 font-bold bg-red-500/30 rounded-lg py-1">⚠️ {joinErr}</p>}
-            <button onClick={oJoin} className="w-full text-white font-black py-2.5 bg-purple-900/50 rounded-xl active:bg-purple-800 text-sm">🚪 {t.joinen}</button>
+          
+          {/* Main Logo */}
+          <div className="text-center mb-6">
+            <h1 className="text-4xl md:text-6xl font-black italic" 
+                style={{ color: '#FFC800', textShadow: '3px 3px 0 #ED1C24, 6px 6px 0 #278E43' }}>
+              DOMINO
+            </h1>
           </div>
-          {status!=="on"&&(<div className="mt-2 bg-yellow-500/20 rounded-xl p-2 w-full"><p className="text-yellow-300 text-[10px] text-center font-bold">⏳ {t.serverStart}</p><button onClick={()=>fetch(SOCKET_URL).catch(()=>{})} className="w-full mt-1 text-yellow-400 text-[10px] font-bold bg-yellow-500/10 rounded py-1">🔄</button></div>)}
-          <p className="text-white/20 text-[10px] mt-2">☀️ Biji Kurdistan</p>
+          
+          {/* Navigation Tabs - LIKE PHOTO 2 */}
+          <div className="flex justify-center mb-6">
+            <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-1 flex gap-1">
+              <button
+                onClick={() => setActiveTab('play')}
+                className={`px-6 py-2 rounded-xl font-bold transition-all ${
+                  activeTab === 'play' ? 'bg-amber-500 text-black' : 'text-white hover:bg-white/10'
+                }`}
+              >
+                🎮 PLAY
+              </button>
+              <button
+                onClick={() => { setActiveTab('champions'); setView('champions'); loadAllUsers(); }}
+                className={`px-6 py-2 rounded-xl font-bold transition-all ${
+                  activeTab === 'champions' ? 'bg-amber-500 text-black' : 'text-white hover:bg-white/10'
+                }`}
+              >
+                👑 CHAMPIONS
+              </button>
+              <button
+                onClick={() => { setActiveTab('store'); setView('store'); }}
+                className={`px-6 py-2 rounded-xl font-bold transition-all ${
+                  activeTab === 'store' ? 'bg-amber-500 text-black' : 'text-white hover:bg-white/10'
+                }`}
+              >
+                🏪 STORE
+              </button>
+            </div>
+          </div>
+          
+          {/* Play Modes - LIKE PHOTO 2 */}
+          {activeTab === 'play' && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
+              {/* Quick Play */}
+              <div className="bg-gradient-to-br from-red-600/90 to-red-800/90 backdrop-blur-sm rounded-3xl p-6 border border-red-400/30 shadow-2xl hover:scale-105 transition-all cursor-pointer group"
+                   onClick={() => startGame('quick')}>
+                <div className="w-20 h-20 mx-auto mb-4 bg-red-500/30 rounded-full flex items-center justify-center group-hover:bg-red-500/50 transition-all">
+                  <div className="text-5xl">▶️</div>
+                </div>
+                <h3 className="text-xl font-bold text-white text-center mb-2">QUICK PLAY</h3>
+                <p className="text-white/70 text-xs text-center mb-4">کلاسیک یاری، دەستبەجێ</p>
+                <button className="w-full bg-red-800 hover:bg-red-700 text-white font-bold py-2 rounded-xl border border-red-500/50">
+                  PLAY
+                </button>
+              </div>
+              
+              {/* Ranked */}
+              <div className="bg-gradient-to-br from-amber-600/90 to-amber-800/90 backdrop-blur-sm rounded-3xl p-6 border border-amber-400/30 shadow-2xl hover:scale-105 transition-all cursor-pointer group"
+                   onClick={() => startGame('ranked')}>
+                <div className="w-20 h-20 mx-auto mb-4 bg-amber-500/30 rounded-full flex items-center justify-center group-hover:bg-amber-500/50 transition-all">
+                  <div className="text-5xl">👑</div>
+                </div>
+                <h3 className="text-xl font-bold text-white text-center mb-2">RANKED</h3>
+                <p className="text-white/70 text-xs text-center mb-4">پێشبڕکێ بۆ ئاستی جهانی</p>
+                <button className="w-full bg-amber-800 hover:bg-amber-700 text-white font-bold py-2 rounded-xl border border-amber-500/50">
+                  PLAY
+                </button>
+              </div>
+              
+              {/* Turbo */}
+              <div className="bg-gradient-to-br from-orange-600/90 to-orange-800/90 backdrop-blur-sm rounded-3xl p-6 border border-orange-400/30 shadow-2xl hover:scale-105 transition-all cursor-pointer group"
+                   onClick={() => startGame('turbo')}>
+                <div className="w-20 h-20 mx-auto mb-4 bg-orange-500/30 rounded-full flex items-center justify-center group-hover:bg-orange-500/50 transition-all">
+                  <div className="text-5xl">⚡</div>
+                </div>
+                <h3 className="text-xl font-bold text-white text-center mb-2">TURBO</h3>
+                <p className="text-white/70 text-xs text-center mb-4">یاری خێرا کۆنترۆل</p>
+                <button className="w-full bg-orange-800 hover:bg-orange-700 text-white font-bold py-2 rounded-xl border border-orange-500/50">
+                  PLAY
+                </button>
+              </div>
+              
+              {/* Tournament */}
+              <div className="bg-gradient-to-br from-purple-600/90 to-purple-800/90 backdrop-blur-sm rounded-3xl p-6 border border-purple-400/30 shadow-2xl hover:scale-105 transition-all cursor-pointer group"
+                   onClick={() => setView('tournament')}>
+                <div className="w-20 h-20 mx-auto mb-4 bg-purple-500/30 rounded-full flex items-center justify-center group-hover:bg-purple-500/50 transition-all">
+                  <div className="text-5xl">🏆</div>
+                </div>
+                <h3 className="text-xl font-bold text-white text-center mb-2">TOURNAMENT</h3>
+                <p className="text-white/70 text-xs text-center mb-4">بە قەزا بۆ جایزە</p>
+                <button className="w-full bg-purple-800 hover:bg-purple-700 text-white font-bold py-2 rounded-xl border border-purple-500/50">
+                  PLAY
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Bottom Bar */}
+          <div className="fixed bottom-4 left-4 right-4 flex justify-between items-center">
+            <button
+              onClick={() => setView('stats')}
+              className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold hover:bg-white/30 transition-all"
+            >
+              📊 ئاست
+            </button>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className="bg-white/20 backdrop-blur-sm text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-white/30 transition-all"
+              >
+                ⚙️
+              </button>
+            </div>
+          </div>
+          
+          {/* Settings Modal */}
+          {showSettings && (
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+              <div className="bg-white/95 rounded-2xl p-6 max-w-sm w-full">
+                <h2 className="text-2xl font-bold mb-4 text-center">⚙️ ڕێکخستن</h2>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold">🔊 دەنگ</span>
+                    <button
+                      onClick={() => setSoundEnabled(!soundEnabled)}
+                      className={`px-4 py-2 rounded-full font-bold ${soundEnabled ? 'bg-green-500 text-white' : 'bg-gray-300'}`}
+                    >
+                      {soundEnabled ? 'کریە' : 'کوژاوە'}
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className="w-full mt-4 bg-gray-600 text-white font-bold py-2 rounded-xl"
+                >
+                  داخستن
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* GAME */}
-      {view === "game" && (
-        <div className="w-full h-[100dvh] flex flex-col z-10">
-          <div className="flex items-center justify-between px-2 py-1.5 flex-shrink-0 relative overflow-hidden"><div className="absolute inset-0" style={{background:"linear-gradient(90deg, #ED2024 0%, #ED2024 30%, rgba(255,255,255,0.2) 30%, rgba(255,255,255,0.2) 70%, #21A038 70%)"}}/><div className="absolute inset-0 bg-black/30"/><button onClick={()=>{setView("menu");setWaiting(false);setShowLaugh(false);setShowWin(false)}} className="text-white text-lg px-1 relative z-10">↩</button><div className="flex items-center gap-1.5 relative z-10"><span className="bg-yellow-500 text-black px-2.5 py-0.5 rounded-lg font-black text-[11px]">{room}</span>{room!=="BOT"&&<button onClick={copy} className="text-white text-[10px] bg-black/30 px-2 py-0.5 rounded-lg font-bold">{copied?"✅":"📋"}</button>}</div><div className={`px-2.5 py-1 rounded-lg text-[10px] font-black shadow relative z-10 ${myTurn?"bg-green-500 text-black":"bg-red-500 text-white"}`}>{myTurn?`🟢 ${t.jouwBeurt}`:`🔴 ${oppName}`}</div></div>
-          {waiting&&(<div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-black text-center py-2.5 text-[11px] flex-shrink-0">⏳ {t.stuurCode} <span className="bg-black text-white px-3 py-1 rounded-lg font-mono mx-2 text-base tracking-widest">{room}</span><button onClick={copy} className="bg-white/70 px-2 py-0.5 rounded text-[10px] font-bold">{copied?"✅":"📋"}</button></div>)}
-          {gameOver&&(<div className={`text-black font-black text-center py-3 text-base flex-shrink-0 ${iWon?"bg-gradient-to-r from-yellow-400 to-orange-500":"bg-gradient-to-r from-red-500 to-red-700 text-white"}`}>{iWon?`🏆 ${t.gewonnen}`:`💀 ${t.verloren} 🤣`}<button onClick={restart} className="ml-3 bg-black text-white px-4 py-1.5 rounded-xl text-xs font-bold">🔄 {t.opnieuw}</button></div>)}
-
-          <div className="flex sm:hidden flex-shrink-0"><button onClick={()=>setTab("board")} className={`flex-1 py-2 text-xs font-bold ${tab==="board"?"bg-green-900/50 text-green-400 border-b-2 border-green-400":"text-white/30 bg-black/30"}`}>🎮 {t.spel}</button><button onClick={()=>{setTab("chat");setUnread(0)}} className={`flex-1 py-2 text-xs font-bold relative ${tab==="chat"?"bg-green-900/50 text-green-400 border-b-2 border-green-400":"text-white/30 bg-black/30"}`}>💬 {t.chat}{unread>0&&tab!=="chat"&&<span className="absolute top-1 right-[30%] bg-red-500 text-white text-[7px] w-4 h-4 rounded-full flex items-center justify-center font-bold animate-bounce">{unread}</span>}</button></div>
-
-          <div className="flex-1 flex min-h-0">
-            <div className={`flex-1 flex flex-col min-h-0 ${tab==="chat"?"hidden sm:flex":"flex"}`}>
-              <div className="bg-black/50 px-2 py-1.5 flex items-center justify-between flex-shrink-0"><div className="flex items-center gap-1.5"><div className="w-7 h-7 rounded-full bg-red-900/80 flex items-center justify-center text-xs">👤</div><div><div className="text-white font-bold text-[11px]">{oppName}</div><div className="text-white/30 text-[9px]">{cOpp} {t.stenen}</div></div></div><div className="flex gap-px overflow-hidden max-w-[55%]">{[...Array(Math.min(cOpp,14))].map((_,i)=><Back key={i}/>)}</div></div>
-              <div className="flex-1 relative overflow-auto"><div className="absolute inset-0"><div className="absolute top-0 left-0 right-0 h-1/3 bg-[#ED2024]/20"/><div className="absolute top-1/3 left-0 right-0 h-1/3 bg-white/10"/><div className="absolute top-2/3 left-0 right-0 h-1/3 bg-[#21A038]/20"/></div><div className="absolute inset-0" style={{background:"radial-gradient(ellipse at center, rgba(30,100,45,0.75) 0%, rgba(20,70,30,0.85) 60%, rgba(10,50,15,0.92) 100%)"}}/><div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Sun s={250} c="opacity-[0.08]"/></div><div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#ED2024] via-[#FFD700] to-[#21A038]"/><div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#21A038] via-[#FFD700] to-[#ED2024]"/><div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-[#ED2024] via-[#FFD700] to-[#21A038]"/><div className="absolute top-0 right-0 w-1.5 h-full bg-gradient-to-b from-[#ED2024] via-[#FFD700] to-[#21A038]"/><div className="absolute inset-0 flex items-center justify-center overflow-auto p-4 z-10">{!board.length?(<div className="text-white/20 text-center animate-pulse"><Sun s={80} c="mx-auto mb-3 opacity-20"/><div className="text-sm font-bold">{waiting?t.wachtVriend:t.legEerste}</div></div>):(<DominoChain board={board} lastIdx={lastIdx}/>)}</div></div>
-              <div className="bg-black/60 px-2 py-1.5 flex items-center justify-between flex-shrink-0 border-t border-yellow-500/30"><div className="flex items-center gap-1.5"><div className="w-7 h-7 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-sm shadow border border-yellow-300/50">{account.avatar}</div><div><div className="text-white font-bold text-[11px]">{playerName}</div><div className="text-white/30 text-[9px]">{hand.length} {t.stenen}</div></div></div><div className="flex gap-1.5 items-center">{!canAny()&&myTurn&&!gameOver&&cPile>0&&<span className="text-red-400 text-[8px] animate-pulse">⚠️</span>}<button onClick={draw} disabled={!myTurn||!!gameOver||cPile===0} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold disabled:opacity-25 active:bg-blue-500 shadow">📦 {t.pak}</button>{!canAny()&&myTurn&&!gameOver&&cPile===0&&<button onClick={pass} className="bg-orange-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold active:bg-orange-500 shadow">⏭️ {t.pas}</button>}</div></div>
+  // ==================== CHAMPIONS SCREEN ====================
+  if (view === 'champions') {
+    const filteredUsers = getFilteredAndSortedUsers();
+    
+    return (
+      <div className="min-h-screen relative">
+        <div className="fixed inset-0 -z-10" style={{
+          background: `linear-gradient(135deg, #3d2914 0%, #5c3d1e 50%, #2d1f0f 100%)`
+        }} />
+        
+        <div className="relative z-10 min-h-screen p-4">
+          <div className="max-w-4xl mx-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
+              <button onClick={() => setView('menu')}
+                className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl font-bold transition-all">
+                ↩ گەڕانەوە
+              </button>
+              <h1 className="text-3xl font-black text-white">👑 CHAMPIONS</h1>
+              <DiamondBadge diamonds={currentUser?.diamonds || 0} />
             </div>
-            <div className={`w-full sm:w-52 md:w-56 bg-black/50 flex flex-col border-l border-yellow-500/10 ${tab==="board"?"hidden sm:flex":"flex"}`}>
-              <div className="text-white/40 font-bold text-[10px] text-center py-1.5 bg-yellow-500/10 hidden sm:block">💬 {t.chat}</div>
-              <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">{!msgs.length&&<div className="text-white/15 text-[10px] text-center mt-8">{t.geenBerichten}</div>}{msgs.map((m,i)=>(<div key={i} className={`p-1.5 rounded-lg text-[10px] ${m.sender==="⚙️"?"bg-blue-500/10 text-blue-300/80 italic":m.sender.includes("🤖")?"bg-red-500/10 text-red-300/80":"bg-white/5 text-white/80"}`}><div className="flex justify-between"><span className="font-bold text-yellow-400/80 text-[9px]">{m.sender}</span><span className="text-white/10 text-[7px]">{m.time}</span></div><div className="break-words mt-px">{m.text}</div></div>))}<div ref={btm}/></div>
-              {showEm&&(<div className="grid grid-cols-8 gap-0.5 p-1.5 bg-black/50 mx-1.5 rounded-lg max-h-20 overflow-y-auto border border-white/5">{emos.map(e=><button key={e} onClick={()=>setMsg(p=>p+e)} className="text-sm p-0.5 rounded active:bg-white/20">{e}</button>)}</div>)}
-              <div className="flex gap-1 p-2 pt-1"><button onClick={()=>setShowEm(!showEm)} className={`px-1.5 py-1 rounded-lg text-sm ${showEm?"bg-yellow-500":"bg-white/10"}`}>😊</button><input value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")sendC(msg)}} className="flex-1 bg-white/10 rounded-lg px-2 py-1 text-[11px] text-white outline-none focus:ring-1 focus:ring-yellow-500/50 placeholder-white/20 min-w-0" placeholder={t.typ}/><button onClick={()=>sendC(msg)} className="bg-green-600 px-2.5 py-1 rounded-lg text-[10px] text-white font-bold active:bg-green-500">➤</button></div>
+            
+            {/* Search & Filter */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 mb-6">
+              <div className="flex flex-col md:flex-row gap-4">
+                <input
+                  type="text"
+                  value={statsSearch}
+                  onChange={(e) => setStatsSearch(e.target.value)}
+                  className="flex-1 p-3 rounded-xl bg-white/20 text-white placeholder-white/50 outline-none focus:ring-2 focus:ring-yellow-500"
+                  placeholder="🔍 گەڕان بە ناو..."
+                />
+                <select
+                  value={statsSortBy}
+                  onChange={(e) => setStatsSortBy(e.target.value as any)}
+                  className="p-3 rounded-xl bg-white/20 text-white outline-none"
+                >
+                  <option value="wins">🏆 بریار</option>
+                  <option value="diamonds">💎 جواهر</option>
+                  <option value="games">🎮 یاری</option>
+                  <option value="winrate">📈 ئاستی بریار</option>
+                </select>
+              </div>
             </div>
-          </div>
-
-          <div className="px-1.5 py-2 border-t-2 border-yellow-500/40 flex-shrink-0" style={{background:"linear-gradient(to top, #070710, #0d1117, #161b22)"}}>
-            {!canAny()&&myTurn&&!gameOver&&cPile>0&&(<div className="text-center text-red-400/80 text-[9px] font-bold mb-1 animate-pulse">⚠️ {t.pakUitPot}</div>)}
-            <div className="flex justify-center gap-[3px] overflow-x-auto pb-0.5" style={{scrollbarWidth:"none"}}>{hand.map((ti,i)=>{const ends=getEnds(board);const ok=!board.length||canPlay(ti,board,ends)!==null;return(<div key={`${ti[0]}-${ti[1]}-${i}`} onClick={()=>play(ti,i)} className={`flex-shrink-0 transition-all duration-200 ${!myTurn||gameOver?"opacity-20 pointer-events-none":ok?"active:scale-90 sm:hover:-translate-y-3":"opacity-25"}`}><HandTile v={ti} hl={ok&&myTurn&&!gameOver} sm={hand.length>6}/></div>)})}</div>
+            
+            {/* Top 3 Podium */}
+            {filteredUsers.length >= 3 && (
+              <div className="flex justify-center items-end gap-2 mb-8">
+                {/* 2nd */}
+                <div className="text-center">
+                  <div className="text-4xl mb-2">{filteredUsers[1].avatar}</div>
+                  <div className="bg-gray-200 rounded-lg p-2 w-28">
+                    <div className="font-bold text-sm truncate">{filteredUsers[1].username}</div>
+                    <div className="text-xs text-gray-600">🥈 {filteredUsers[1].stats.wins}W</div>
+                  </div>
+                  <div className="h-16 bg-gray-400 rounded-t-lg mt-1"></div>
+                </div>
+                
+                {/* 1st */}
+                <div className="text-center">
+                  <div className="text-5xl mb-2">{filteredUsers[0].avatar}</div>
+                  <div className="bg-yellow-100 rounded-lg p-3 w-32 border-2 border-yellow-400">
+                    <div className="font-bold truncate">{filteredUsers[0].username}</div>
+                    <div className="text-sm text-yellow-700">🥇 {filteredUsers[0].stats.wins}W</div>
+                  </div>
+                  <div className="h-24 bg-yellow-500 rounded-t-lg mt-1"></div>
+                </div>
+                
+                {/* 3rd */}
+                <div className="text-center">
+                  <div className="text-4xl mb-2">{filteredUsers[2].avatar}</div>
+                  <div className="bg-orange-100 rounded-lg p-2 w-28">
+                    <div className="font-bold text-sm truncate">{filteredUsers[2].username}</div>
+                    <div className="text-xs text-gray-600">🥉 {filteredUsers[2].stats.wins}W</div>
+                  </div>
+                  <div className="h-12 bg-orange-400 rounded-t-lg mt-1"></div>
+                </div>
+              </div>
+            )}
+            
+            {/* Leaderboard List */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl overflow-hidden">
+              {filteredUsers.map((user, index) => (
+                <div key={user.id} className={`flex items-center gap-4 p-4 border-b border-white/10 ${
+                  currentUser?.id === user.id ? 'bg-yellow-500/20' : 'hover:bg-white/5'
+                }`}>
+                  <div className="w-8 text-center font-bold text-white text-lg">{getRank(index)}</div>
+                  <div className="text-3xl">{user.avatar}</div>
+                  <div className="flex-1">
+                    <div className="font-bold text-white">{user.username}</div>
+                    <div className="text-white/60 text-sm flex gap-3">
+                      <span>🏆 {user.stats.wins}</span>
+                      <span>💔 {user.stats.losses}</span>
+                      <span>💎 {user.diamonds}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-yellow-400 font-bold">{calculateWinRate(user)}%</div>
+                    <div className="text-white/60 text-xs">winrate</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      )}
-    </main>
+      </div>
+    );
+  }
+
+  // ==================== STORE SCREEN - LIKE PHOTO 4 ====================
+  if (view === 'store') {
+    return (
+      <div className="min-h-screen relative">
+        <div className="fixed inset-0 -z-10" style={{
+          background: `linear-gradient(135deg, #3d2914 0%, #5c3d1e 50%, #2d1f0f 100%)`
+        }} />
+        
+        <style jsx>{`
+          @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+          }
+          .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+          }
+        `}</style>
+        
+        <div className="relative z-10 min-h-screen p-4">
+          <div className="max-w-5xl mx-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
+              <button onClick={() => setView('menu')}
+                className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl font-bold transition-all">
+                ↩ گەڕانەوە
+              </button>
+              <h1 className="text-3xl font-black text-white">🏪 STORE</h1>
+              <DiamondBadge diamonds={currentUser?.diamonds || 0} size="large" />
+            </div>
+            
+            {/* Store Tabs */}
+            <div className="flex justify-center mb-6">
+              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-1 flex gap-1">
+                <button
+                  onClick={() => setStoreTab('skins')}
+                  className={`px-8 py-3 rounded-xl font-bold transition-all ${
+                    storeTab === 'skins' ? 'bg-amber-500 text-black' : 'text-white hover:bg-white/10'
+                  }`}
+                >
+                  🎨 SKINS
+                </button>
+                <button
+                  onClick={() => setStoreTab('gems')}
+                  className={`px-8 py-3 rounded-xl font-bold transition-all ${
+                    storeTab === 'gems' ? 'bg-amber-500 text-black' : 'text-white hover:bg-white/10'
+                  }`}
+                >
+                  💎 GEMS
+                </button>
+              </div>
+            </div>
+            
+            {storeTab === 'skins' && (
+              <>
+                {/* Daily Items */}
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-white font-bold">DAILY ITEMS</span>
+                  <span className="bg-amber-500/30 text-amber-300 px-2 py-1 rounded text-xs">REFRESHES IN 12H</span>
+                </div>
+                
+                {/* Skins Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {skins.map((skin) => {
+                    const owned = currentUser?.ownedSkins.includes(skin.id);
+                    const equipped = currentUser?.selectedSkin === skin.id;
+                    const canBuy = currentUser && currentUser.diamonds >= skin.price;
+                    
+                    return (
+                      <div key={skin.id} className={`bg-white/10 backdrop-blur-sm rounded-2xl overflow-hidden border-2 transition-all hover:scale-105 ${
+                        equipped ? 'border-green-500' : 'border-white/20'
+                      }`}>
+                        {/* Skin Preview */}
+                        <div className="h-40 flex items-center justify-center relative overflow-hidden"
+                             style={{
+                               background: `linear-gradient(135deg, ${skin.colors.primary}, ${skin.colors.secondary})`
+                             }}>
+                          <div className="absolute inset-0 shimmer" />
+                          <div className="text-6xl">{skin.emoji}</div>
+                          {equipped && (
+                            <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                              EQUIPPED
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Skin Info */}
+                        <div className="p-4">
+                          <h3 className="text-xl font-bold text-white mb-1">{skin.name}</h3>
+                          <p className="text-white/60 text-sm mb-4">
+                            {skin.type === 'table' ? 'ڕووی تەختە' : skin.type === 'tiles' ? 'دومینۆ' : 'ڕەک'}
+                          </p>
+                          
+                          {owned ? (
+                            <button
+                              onClick={() => buySkin(skin)}
+                              className={`w-full font-bold py-2 rounded-xl transition-all ${
+                                equipped 
+                                  ? 'bg-green-600 text-white' 
+                                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+                              }`}
+                            >
+                              {equipped ? '✅ چالاکە' : '🎯 بەکاربهینە'}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => buySkin(skin)}
+                              disabled={!canBuy}
+                              className={`w-full font-bold py-2 rounded-xl flex items-center justify-center gap-2 transition-all ${
+                                canBuy 
+                                  ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+                                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                              }`}
+                            >
+                              <span>💎</span>
+                              <span>{skin.price}</span>
+                              {!canBuy && <span className="text-xs">(پێویستە)</span>}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+            
+            {storeTab === 'gems' && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Small Pack */}
+                <div className="bg-gradient-to-br from-blue-600/30 to-blue-800/30 backdrop-blur-sm rounded-2xl p-6 border border-blue-400/30">
+                  <div className="text-5xl text-center mb-4">💎</div>
+                  <h3 className="text-xl font-bold text-white text-center mb-2">کۆمپلیمینت</h3>
+                  <div className="text-3xl font-bold text-blue-400 text-center mb-4">100 💎</div>
+                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl">
+                    ٣.٩٩ $
+                  </button>
+                </div>
+                
+                {/* Medium Pack */}
+                <div className="bg-gradient-to-br from-purple-600/30 to-purple-800/30 backdrop-blur-sm rounded-2xl p-6 border border-purple-400/30 relative">
+                  <div className="absolute -top-2 -right-2 bg-yellow-500 text-black text-xs px-2 py-1 rounded-full font-bold">
+                    مەعروف!
+                  </div>
+                  <div className="text-5xl text-center mb-4">💎💎💎</div>
+                  <h3 className="text-xl font-bold text-white text-center mb-2">پاشەکەوت</h3>
+                  <div className="text-3xl font-bold text-purple-400 text-center mb-4">500 💎</div>
+                  <button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl">
+                    ٩.٩٩ $
+                  </button>
+                </div>
+                
+                {/* Large Pack */}
+                <div className="bg-gradient-to-br from-amber-600/30 to-amber-800/30 backdrop-blur-sm rounded-2xl p-6 border border-amber-400/30">
+                  <div className="text-5xl text-center mb-4">💎👑</div>
+                  <h3 className="text-xl font-bold text-white text-center mb-2">خۆشاوێک</h3>
+                  <div className="text-3xl font-bold text-amber-400 text-center mb-4">1500 💎</div>
+                  <button className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl">
+                    ٢٤.٩٩ $
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================== TOURNAMENT SCREEN - LIKE PHOTO 3 ====================
+  if (view === 'tournament') {
+    return (
+      <div className="min-h-screen relative">
+        <div className="fixed inset-0 -z-10" style={{
+          background: `linear-gradient(135deg, #3d2914 0%, #5c3d1e 50%, #2d1f0f 100%)`
+        }} />
+        
+        <div className="relative z-10 min-h-screen p-4">
+          <div className="max-w-4xl mx-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
+              <button onClick={() => setView('menu')}
+                className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl font-bold transition-all">
+                ↩
+              </button>
+              <h1 className="text-2xl font-black text-white flex items-center gap-2">
+                🏆 TOURNAMENT
+              </h1>
+              <div className="flex items-center gap-2">
+                <div className="bg-amber-500/20 text-amber-400 px-3 py-1 rounded-xl font-mono text-lg">
+                  ⏰ {tournamentTimer}
+                </div>
+              </div>
+            </div>
+            
+            {currentTournament && (
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl overflow-hidden">
+                {/* Tournament Header */}
+                <div className="bg-gradient-to-r from-amber-600/50 to-amber-800/50 p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="bg-amber-500 text-black px-2 py-1 rounded text-xs font-bold">SOON</span>
+                        <span className="text-white text-2xl font-black">{currentTournament.name}</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-white/70 text-sm">
+                        <span>👥 {currentTournament.players.length}/{currentTournament.maxPlayers}</span>
+                        <span>💰 FREE</span>
+                      </div>
+                    </div>
+                    <div className="text-green-500 text-3xl">✓</div>
+                  </div>
+                </div>
+                
+                {/* Tournament Content */}
+                <div className="grid md:grid-cols-2 gap-4 p-6">
+                  {/* Prizes */}
+                  <div>
+                    <h3 className="text-amber-400 font-bold mb-3 flex items-center gap-2">
+                      🏆 PRIZES
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center bg-white/5 rounded-lg p-3">
+                        <span className="text-yellow-400">🥇 1ST</span>
+                        <span className="text-white font-bold">{currentTournament.prizes.first.toLocaleString()} 💎</span>
+                      </div>
+                      <div className="flex justify-between items-center bg-white/5 rounded-lg p-3">
+                        <span className="text-gray-300">🥈 2ND</span>
+                        <span className="text-white font-bold">{currentTournament.prizes.second.toLocaleString()} 💎</span>
+                      </div>
+                      <div className="flex justify-between items-center bg-white/5 rounded-lg p-3">
+                        <span className="text-orange-400">🥉 3RD</span>
+                        <span className="text-white font-bold">{currentTournament.prizes.third.toLocaleString()} 💎</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Rules */}
+                  <div>
+                    <h3 className="text-blue-400 font-bold mb-3 flex items-center gap-2">
+                      📋 RULES
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center bg-white/5 rounded-lg p-3">
+                        <span className="text-white/60">MODE</span>
+                        <span className="text-white font-bold">Ranked</span>
+                      </div>
+                      <div className="flex justify-between items-center bg-white/5 rounded-lg p-3">
+                        <span className="text-white/60">TEAM</span>
+                        <span className="text-white font-bold">1v1</span>
+                      </div>
+                      <div className="flex justify-between items-center bg-white/5 rounded-lg p-3">
+                        <span className="text-white/60">ENTRY</span>
+                        <span className="text-green-400 font-bold">Free</span>
+                      </div>
+                      <div className="flex justify-between items-center bg-white/5 rounded-lg p-3">
+                        <span className="text-white/60">TIMER</span>
+                        <span className="text-white font-bold">15s</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Players List */}
+                <div className="px-6 pb-6">
+                  <h3 className="text-purple-400 font-bold mb-3 flex items-center gap-2">
+                    👥 PLAYERS ({currentTournament.players.length})
+                  </h3>
+                  <div className="max-h-40 overflow-y-auto space-y-2">
+                    {currentTournament.players.slice(0, 10).map((player, idx) => (
+                      <div key={player.id} className="flex items-center gap-3 bg-white/5 rounded-lg p-2">
+                        <span className="text-white/60 w-6">#{idx + 1}</span>
+                        <span className="text-2xl">{player.avatar}</span>
+                        <span className="text-white flex-1">{player.name}</span>
+                        <span className="text-amber-400 text-sm">{player.wins}W</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Join Button */}
+                <div className="p-6 pt-0">
+                  <button 
+                    onClick={() => {
+                      startGame('ranked');
+                      addSystemMessage('🏆 Tournament match begonnen! +100 💎 voor winst!');
+                    }}
+                    className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 rounded-xl text-lg transition-all"
+                  >
+                    🎮 JOIN TOURNAMENT
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Leave Button */}
+            <button
+              onClick={() => setView('menu')}
+              className="w-full mt-4 bg-red-600/50 hover:bg-red-600 text-white font-bold py-3 rounded-xl"
+            >
+              ↩ LEAVE TOURNAMENT
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================== GAME SCREEN - LIKE PHOTO 1 ====================
+  return (
+    <div className="min-h-screen relative overflow-hidden">
+      <LaughOverlay />
+      
+      {/* Green felt table background */}
+      <div className="fixed inset-0 -z-10" style={{
+        background: `
+          radial-gradient(ellipse at center, #2d5a27 0%, #1a3d15 50%, #0f2a0d 100%)
+        `
+      }}>
+        {/* Texture overlay */}
+        <div className="absolute inset-0 opacity-20" style={{
+          backgroundImage: `
+            repeating-linear-gradient(
+              45deg,
+              transparent,
+              transparent 2px,
+              rgba(0,0,0,0.1) 2px,
+              rgba(0,0,0,0.1) 4px
+            )
+          `
+        }} />
+      </div>
+      
+      {/* Table wooden frame */}
+      <div className="fixed inset-2 border-8 border-amber-900 rounded-3xl shadow-2xl" />
+      <div className="fixed inset-4 border-4 border-amber-800 rounded-2xl" />
+      
+      {/* Kurdistan stripe */}
+      <div className="fixed bottom-4 left-8 right-8 h-2 flex rounded overflow-hidden z-20">
+        <div className="flex-1" style={{ background: '#ED1C24' }} />
+        <div className="flex-1" style={{ background: '#FFFFFF' }} />
+        <div className="flex-1" style={{ background: '#278E43' }} />
+      </div>
+      
+      <div className="relative z-10 min-h-screen flex flex-col p-3">
+        {/* Top Bar - LIKE PHOTO 1 */}
+        <div className="flex justify-between items-center mb-2">
+          {/* Round & Score */}
+          <div className="flex items-center gap-2">
+            <div className="bg-black/40 backdrop-blur-sm rounded-xl px-3 py-2 flex items-center gap-2">
+              <button className="text-white/70 hover:text-white">🔄</button>
+              <span className="text-white font-bold">{roundNumber}/3</span>
+              <span className="text-white/50">=</span>
+              <span className="text-white font-bold">0</span>
+            </div>
+          </div>
+          
+          {/* Center - Player */}
+          <div className="flex flex-col items-center">
+            <div className="w-12 h-12 rounded-full border-3 border-green-500 bg-black/40 flex items-center justify-center text-2xl">
+              {currentUser?.avatar || '👤'}
+            </div>
+            <span className="text-white text-xs mt-1 font-bold">{playerName}</span>
+          </div>
+          
+          {/* Right buttons */}
+          <div className="flex items-center gap-2">
+            {isTurbo && (
+              <div className={`px-3 py-2 rounded-xl font-bold ${turnTimer <= 5 ? 'bg-red-500 animate-pulse' : 'bg-orange-500'} text-white`}>
+                ⏱️ {turnTimer}s
+              </div>
+            )}
+            <button onClick={() => setShowChat(!showChat)} className="bg-black/40 hover:bg-black/60 text-white w-10 h-10 rounded-xl flex items-center justify-center">
+              💬
+            </button>
+            <button onClick={() => setShowGameMenu(!showGameMenu)} className="bg-black/40 hover:bg-black/60 text-white w-10 h-10 rounded-xl flex items-center justify-center">
+              ☰
+            </button>
+          </div>
+        </div>
+        
+        {/* Opponent (top) */}
+        <div className="flex justify-center mb-2">
+          <div className="bg-black/40 backdrop-blur-sm rounded-2xl px-4 py-2 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full border-2 border-red-500 bg-black/40 flex items-center justify-center">
+              🤖
+            </div>
+            <div>
+              <div className="text-white font-bold text-sm">بۆت</div>
+              <div className="text-white/60 text-xs">{opponentHand.length} خشتە</div>
+            </div>
+            {/* Opponent rack */}
+            <div className="flex gap-1 ml-2">
+              {opponentHand.slice(0, 7).map((_, i) => (
+                <div key={i} className="w-6 h-10 bg-gradient-to-b from-amber-700 to-amber-900 rounded border border-amber-600 shadow-md" />
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        {/* Board - CENTER */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="bg-black/20 backdrop-blur-sm rounded-3xl p-6 min-h-[180px] flex items-center justify-center max-w-4xl w-full">
+            {board.length === 0 ? (
+              <div className="text-white/80 text-center animate-pulse">
+                <div className="text-6xl mb-3">🎯</div>
+                <p className="font-bold text-xl">خشتەیەک هەڵببە</p>
+                <p className="text-sm text-white/60 mt-1">کلیک لە خشتەیەک بکە بۆ دەستپێکردن</p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 overflow-x-auto py-4 px-2">
+                {board.map((item, i) => (
+                  <BoardTileDisplay key={i} tile={item.tile} isFirst={i === 0} isLast={i === board.length - 1} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Player's rack - WOODEN RACK STYLE */}
+        <div className="bg-gradient-to-t from-amber-900 via-amber-800 to-amber-700 rounded-t-3xl p-4 border-t-4 border-amber-600 shadow-2xl relative">
+          {/* Rack metallic edge */}
+          <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-b from-gray-400 to-gray-600 rounded-t-3xl" />
+          
+          <div className="flex justify-between items-center mb-3 mt-2">
+            <div className="text-white text-sm">
+              <span className="font-bold">🖐️ دەستەکەت</span>
+              <span className="ml-2 bg-yellow-500 text-black px-2 py-0.5 rounded-full text-xs font-bold">
+                {playerHand.length}
+              </span>
+            </div>
+            
+            {gameOver && (
+              <div className={`font-bold px-4 py-2 rounded-xl ${
+                winner === 'player' ? 'bg-green-500' : 'bg-red-500'
+              } text-white animate-bounce`}>
+                {winner === 'player' ? '🏆 بریار! +100 💎' : '🤣 شکست!'}
+              </div>
+            )}
+          </div>
+          
+          {/* Player's tiles in rack */}
+          <div className="flex justify-center gap-3 flex-wrap">
+            {playerHand.map((tile, i) => {
+              const playableSides = getPlayableSides(tile);
+              const canPlay = currentTurn === 'player' && !gameOver && playableSides !== 'none';
+              
+              return (
+                <DominoTile
+                  key={i}
+                  tile={tile}
+                  size="large"
+                  disabled={!canPlay}
+                  showButtons={canPlay}
+                  onClick={() => {
+                    if (playableSides === 'both' || playableSides === 'right') playTile(tile, i, 'right');
+                    else if (playableSides === 'left') playTile(tile, i, 'left');
+                  }}
+                  onPlayLeft={playableSides === 'left' || playableSides === 'both' ? () => playTile(tile, i, 'left') : undefined}
+                  onPlayRight={playableSides === 'right' || playableSides === 'both' ? () => playTile(tile, i, 'right') : undefined}
+                />
+              );
+            })}
+          </div>
+          
+          {/* Bottom buttons */}
+          <div className="flex justify-between items-center mt-3">
+            <button onClick={() => setView('menu')}
+              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl text-sm font-bold">
+              ↩ گەڕانەوە
+            </button>
+            
+            <div className="flex gap-2">
+              <button onClick={() => { if (gameOver) startGame(gameMode); }}
+                className={`bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold ${!gameOver ? 'opacity-50' : ''}`}>
+                🔄 نوێ
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Chat Panel (slide in from right) */}
+        {showChat && (
+          <div className="fixed right-4 top-20 bottom-24 w-72 bg-black/80 backdrop-blur-sm rounded-2xl p-4 flex flex-col z-30">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-white font-bold">💬 چات</span>
+              <button onClick={() => setShowChat(false)} className="text-white/60 hover:text-white">✕</button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-2 mb-3">
+              {messages.slice(-20).map((msg, i) => (
+                <div key={i} className={`p-2 rounded-lg text-xs ${
+                  msg.sender === 'سیستەم' ? 'bg-blue-600/40 text-blue-200' : 'bg-white/10 text-white'
+                }`}>
+                  <span className="font-bold text-yellow-400">{msg.sender}: </span>
+                  {msg.text}
+                  <div className="text-white/40 text-[10px] mt-1">{msg.time}</div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex gap-1 mb-2 flex-wrap">
+              {['🔥', '👏', '😂', '👋', '🎯', '💪', '😎'].map(e => (
+                <button key={e} onClick={() => sendChat(e)} className="bg-white/10 hover:bg-white/20 p-1.5 rounded text-lg">{e}</button>
+              ))}
+            </div>
+            
+            <div className="flex gap-1">
+              <input
+                type="text"
+                value={currentMsg}
+                onChange={(e) => setCurrentMsg(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && sendChat(currentMsg)}
+                className="flex-1 bg-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none"
+                placeholder="پەیام..."
+              />
+              <button onClick={() => sendChat(currentMsg)} className="bg-green-600 hover:bg-green-700 px-3 py-2 rounded-lg text-white font-bold">
+                ➤
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Game Menu Overlay */}
+        {showGameMenu && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-40">
+            <div className="bg-white/95 rounded-2xl p-6 max-w-sm w-full">
+              <h2 className="text-2xl font-bold mb-6 text-center">⚙️ مینیو</h2>
+              <div className="space-y-3">
+                <button onClick={() => { setView('menu'); setShowGameMenu(false); }}
+                  className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl">
+                  🚪 چوونە دەرەوە
+                </button>
+                <button onClick={() => { startGame(gameMode); setShowGameMenu(false); }}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl">
+                  🔄 یاری نوێ
+                </button>
+                <button onClick={() => setShowGameMenu(false)}
+                  className="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 rounded-xl">
+                  ↩️ بەردەوام بە
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
