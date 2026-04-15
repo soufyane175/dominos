@@ -1,338 +1,383 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState, useRef } from 'react';
+import { io, Socket } from 'socket.io-client';
+
+const SOCKET_URL = "https://jouw-project.up.railway.app";
 
 type Tile = [number, number];
 type Message = { sender: string; text: string; time: string };
 
-// Alle 28 domino stenen
-function allTiles(): Tile[] {
-  const tiles: Tile[] = [];
-  for (let i = 0; i <= 6; i++) {
-    for (let j = i; j <= 6; j++) {
-      tiles.push([i, j]);
-    }
-  }
-  return tiles;
-}
-
-function shuffle(arr: Tile[]): Tile[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function genCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return code;
-}
-
-// Check of tile past aan links of rechts van het bord
-function canPlay(tile: Tile, board: Tile[], ends: [number, number]): "left" | "right" | null {
-  if (board.length === 0) return "right";
-  const [leftEnd, rightEnd] = ends;
-  if (tile[0] === leftEnd || tile[1] === leftEnd) return "left";
-  if (tile[0] === rightEnd || tile[1] === rightEnd) return "right";
-  return null;
-}
-
-function getEnds(board: { tile: Tile; flipped: boolean }[]): [number, number] {
-  if (board.length === 0) return [-1, -1];
-  const first = board[0];
-  const last = board[board.length - 1];
-  const leftEnd = first.flipped ? first.tile[1] : first.tile[0];
-  const rightEnd = last.flipped ? last.tile[0] : last.tile[1];
-  return [leftEnd, rightEnd];
-}
-
-// Opgeslagen kamers (in-memory voor lokaal spelen)
-const rooms: Record<string, { code: string; players: string[] }> = {};
-
 export default function Home() {
-  const [view, setView] = useState<"menu" | "game">("menu");
-  const [lang, setLang] = useState<"KU" | "NL">("KU");
-  const [mode, setMode] = useState<"bot" | "online">("bot");
-
-  // Game state
-  const [board, setBoard] = useState<{ tile: Tile; flipped: boolean }[]>([]);
+  const [view, setView] = useState<'menu' | 'game'>('menu');
+  const [lang, setLang] = useState<'KU' | 'NL'>('NL');
+  
+  // Game states
+  const [board, setBoard] = useState<Tile[]>([]);
   const [playerHand, setPlayerHand] = useState<Tile[]>([]);
   const [botHand, setBotHand] = useState<Tile[]>([]);
-  const [pile, setPile] = useState<Tile[]>([]);
-  const [turn, setTurn] = useState<"player" | "bot">("player");
-  const [gameOver, setGameOver] = useState<string | null>(null);
-
-  // Room
-  const [roomCode, setRoomCode] = useState("");
-  const [inputCode, setInputCode] = useState("");
-  const [playerName, setPlayerName] = useState("Speler");
-  const [copied, setCopied] = useState(false);
-
-  // Chat
+  const [allDominoes, setAllDominoes] = useState<Tile[]>([]);
+  const [currentTurn, setCurrentTurn] = useState<'player' | 'bot'>('player');
+  const [gameOver, setGameOver] = useState(false);
+  const [winner, setWinner] = useState<'player' | 'bot' | null>(null);
+  
+  // Room states
+  const [roomCode, setRoomCode] = useState('');
+  const [inputCode, setInputCode] = useState('');
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [isInRoom, setIsInRoom] = useState(false);
+  const [playersInRoom, setPlayersInRoom] = useState<string[]>([]);
+  
+  // Chat states
   const [messages, setMessages] = useState<Message[]>([]);
-  const [currentMsg, setCurrentMsg] = useState("");
+  const [currentMsg, setCurrentMsg] = useState('');
   const [showEmojis, setShowEmojis] = useState(false);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  const emojis = [
-    "🔥", "👏", "😂", "👋", "😍", "😎", "🤖", "💯",
-    "😡", "🥳", "😭", "🤣", "💀", "🫡", "🎉", "❤️",
-    "👑", "🐐", "😈", "🤡", "💪", "🙏", "😤", "🥶"
-  ];
+  // Maak alle 28 domino's (dubbele zes set)
+  const generateAllDominoes = () => {
+    const dominoes: Tile[] = [];
+    for (let i = 0; i <= 6; i++) {
+      for (let j = i; j <= 6; j++) {
+        dominoes.push([i, j]);
+      }
+    }
+    return dominoes;
+  };
+
+  // Schuffle array
+  const shuffleArray = (array: any[]) => {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
+  };
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  // Start een nieuw spel
-  const startGame = (gameMode: "bot" | "online") => {
-    const all = shuffle(allTiles());
-    const pHand = all.slice(0, 7);
-    const bHand = all.slice(7, 14);
-    const remaining = all.slice(14);
-
-    setPlayerHand(pHand);
-    setBotHand(bHand);
-    setPile(remaining);
-    setBoard([]);
-    setTurn("player");
-    setGameOver(null);
-    setMode(gameMode);
-    setView("game");
-    setMessages([]);
-
-    if (gameMode === "bot") {
-      setRoomCode("BOT");
-      addSystemMsg("🤖 Bot game gestart! Jij begint.");
-    }
-  };
-
-  const addSystemMsg = (text: string) => {
-    setMessages((prev) => [
-      ...prev,
-      { sender: "⚙️", text, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) },
-    ]);
-  };
-
-  // Kamer maken
-  const handleCreateRoom = () => {
-    const code = genCode();
-    rooms[code] = { code, players: [playerName] };
-    setRoomCode(code);
-    startGame("online");
-    addSystemMsg(`Kamer ${code} aangemaakt! Deel deze code met je vriend.`);
-  };
-
-  // Kamer joinen
-  const handleJoinRoom = () => {
-    const code = inputCode.trim().toUpperCase();
-    if (!code) return;
-    // Simuleer join
-    setRoomCode(code);
-    startGame("online");
-    addSystemMsg(`Je bent gejoind in kamer ${code}!`);
-  };
-
-  // Kopieer code
-  const copyCode = () => {
-    navigator.clipboard.writeText(roomCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  // Speler speelt een tegel
-  const handlePlayTile = (tile: Tile, index: number) => {
-    if (turn !== "player" || gameOver) return;
-
-    const ends = getEnds(board);
-    const side = canPlay(tile, board.map((b) => b.tile), ends);
-
-    if (!side && board.length > 0) {
-      addSystemMsg("❌ Deze tegel past niet! Kies een andere of pak uit de pot.");
-      return;
-    }
-
-    let flipped = false;
-
-    if (board.length === 0) {
-      flipped = false;
-    } else if (side === "left") {
-      if (tile[1] === ends[0]) {
-        flipped = false;
-      } else {
-        flipped = true;
-      }
-    } else {
-      if (tile[0] === ends[1]) {
-        flipped = false;
-      } else {
-        flipped = true;
-      }
-    }
-
-    const newBoard =
-      side === "left"
-        ? [{ tile, flipped }, ...board]
-        : [...board, { tile, flipped }];
-
-    setBoard(newBoard);
-    const newHand = playerHand.filter((_, idx) => idx !== index);
-    setPlayerHand(newHand);
-
-    if (newHand.length === 0) {
-      setGameOver("🎉 JIJ WINT!");
-      addSystemMsg("🎉 Je hebt gewonnen!");
-      return;
-    }
-
-    if (mode === "bot") {
-      setTurn("bot");
-      setTimeout(() => doBotMove(newBoard), 800);
-    } else {
-      setTurn("player");
-    }
-  };
-
-  // Pak uit de pot
-  const drawFromPile = () => {
-    if (turn !== "player" || gameOver) return;
-    if (pile.length === 0) {
-      addSystemMsg("De pot is leeg! Je moet passen.");
-      if (mode === "bot") {
-        setTurn("bot");
-        setTimeout(() => doBotMove(board), 800);
-      }
-      return;
-    }
-
-    const newPile = [...pile];
-    const drawn = newPile.pop()!;
-    setPile(newPile);
-    setPlayerHand((prev) => [...prev, drawn]);
-    addSystemMsg(`📦 Je pakte [${drawn[0]}|${drawn[1]}] uit de pot.`);
-  };
-
-  // Bot speelt
-  const doBotMove = (currentBoard: { tile: Tile; flipped: boolean }[]) => {
-    const ends = getEnds(currentBoard);
-
-    setBotHand((prevBot) => {
-      // Vind een tegel die past
-      let playIdx = -1;
-      let playSide: "left" | "right" | null = null;
-
-      for (let i = 0; i < prevBot.length; i++) {
-        const s = canPlay(prevBot[i], currentBoard.map((b) => b.tile), ends);
-        if (s) {
-          playIdx = i;
-          playSide = s;
-          break;
-        }
-      }
-
-      if (playIdx === -1) {
-        // Bot kan niet spelen, pak uit pot
-        setPile((prevPile) => {
-          if (prevPile.length === 0) {
-            addSystemMsg("🤖 Bot kan niet spelen en pot is leeg. Bot past.");
-            setTurn("player");
-            return prevPile;
-          }
-          const np = [...prevPile];
-          const drawn = np.pop()!;
-          addSystemMsg(`🤖 Bot pakte uit de pot.`);
-
-          // Probeer opnieuw met getrokken tegel
-          const newBotHand = [...prevBot, drawn];
-          setBotHand(newBotHand);
-          setTurn("player");
-          return np;
-        });
-        return prevBot;
-      }
-
-      const botTile = prevBot[playIdx];
-
-      let flipped = false;
-      if (currentBoard.length === 0) {
-        flipped = false;
-      } else if (playSide === "left") {
-        flipped = botTile[1] !== ends[0];
-      } else {
-        flipped = botTile[0] !== ends[1];
-      }
-
-      const newBoard =
-        playSide === "left"
-          ? [{ tile: botTile, flipped }, ...currentBoard]
-          : [...currentBoard, { tile: botTile, flipped }];
-
-      setBoard(newBoard);
-      addSystemMsg(`🤖 Bot speelde [${botTile[0]}|${botTile[1]}]`);
-
-      const newBotHand = prevBot.filter((_, i) => i !== playIdx);
-
-      if (newBotHand.length === 0) {
-        setGameOver("💀 BOT WINT!");
-        addSystemMsg("💀 Bot heeft gewonnen!");
-      }
-
-      setTurn("player");
-      return newBotHand;
+    const newSocket = io(SOCKET_URL, { 
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5
     });
+    
+    setSocket(newSocket);
+
+    // Socket event listeners
+    newSocket.on('connect', () => {
+      console.log('Socket verbonden:', newSocket.id);
+    });
+
+    newSocket.on('roomCreated', (code: string) => {
+      console.log('Kamer aangemaakt:', code);
+      setRoomCode(code);
+      setIsInRoom(true);
+      setPlayersInRoom([newSocket.id || 'Host']);
+      setView('game');
+      startNewGame();
+    });
+
+    newSocket.on('roomJoined', (data: { roomCode: string, players: string[] }) => {
+      console.log('Kamer gejoined:', data);
+      setRoomCode(data.roomCode);
+      setIsInRoom(true);
+      setPlayersInRoom(data.players);
+      setView('game');
+      startNewGame();
+    });
+
+    newSocket.on('playerJoined', (playerId: string) => {
+      console.log('Speler gejoined:', playerId);
+      setPlayersInRoom(prev => [...prev, playerId]);
+    });
+
+    newSocket.on('playerLeft', (playerId: string) => {
+      console.log('Speler vertrokken:', playerId);
+      setPlayersInRoom(prev => prev.filter(id => id !== playerId));
+    });
+
+    newSocket.on('chatMessage', (msg: Message) => {
+      setMessages(prev => [...prev, msg]);
+    });
+
+    newSocket.on('gameStarted', (data: { playerHand: Tile[], botHand: Tile[] }) => {
+      setPlayerHand(data.playerHand);
+      setBotHand(data.botHand);
+      setBoard([]);
+      setCurrentTurn('player');
+      setGameOver(false);
+      setWinner(null);
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('Connectie error:', error);
+    });
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, []);
+
+  const startNewGame = () => {
+    // Genereer en schuffle alle domino's
+    const dominoes = shuffleArray(generateAllDominoes());
+    setAllDominoes(dominoes);
+    
+    // Deel 7 domino's aan elke speler
+    const playerTiles = dominoes.slice(0, 7);
+    const botTiles = dominoes.slice(7, 14);
+    
+    setPlayerHand(playerTiles);
+    setBotHand(botTiles);
+    setBoard([]);
+    setCurrentTurn('player');
+    setGameOver(false);
+    setWinner(null);
+    
+    // Start bericht
+    const startMsg: Message = {
+      sender: 'SYSTEM',
+      text: lang === 'NL' ? '🎮 Nieuw spel gestart! Je hebt 7 domino\'s.' : '🎮 یاری نو دەستپێکرد! تۆ ٧ دومینۆتانت هەیە.',
+      time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+    };
+    setMessages(prev => [...prev, startMsg]);
   };
 
-  // Check of speler kan spelen
-  const canPlayerPlay = (): boolean => {
-    if (board.length === 0) return true;
-    const ends = getEnds(board);
-    return playerHand.some((t) => canPlay(t, board.map((b) => b.tile), ends) !== null);
+  const handleCreateRoom = () => {
+    if (socket) {
+      socket.connect();
+      socket.emit('createRoom');
+      setInputCode('');
+    }
+  };
+
+  const handleJoinRoom = () => {
+    if (socket && inputCode.trim()) {
+      socket.connect();
+      socket.emit('joinRoom', { code: inputCode.trim().toUpperCase() });
+      setInputCode('');
+    }
   };
 
   const sendChat = (text: string) => {
-    const t = text.trim();
-    if (!t) return;
-    const msg: Message = {
-      sender: playerName,
-      text: t,
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    if (!text.trim()) return;
+    
+    const msg: Message = { 
+      sender: 'Ik', 
+      text, 
+      time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
     };
-    setMessages((prev) => [...prev, msg]);
-    setCurrentMsg("");
-    setShowEmojis(false);
+    
+    setMessages(prev => [...prev, msg]);
+    
+    if (socket) {
+      socket.emit('sendMessage', { 
+        roomCode, 
+        msg 
+      });
+    }
+    setCurrentMsg('');
+  };
 
-    // Bot reageert op chat
-    if (mode === "bot") {
-      setTimeout(() => {
-        const botReplies = ["Haha 😂", "Oke 👍", "Ik ga winnen 😈", "Nice! 🔥", "GG 💯", "🤖💪", "Hmm...", "Goed gespeeld! 👏"];
-        const reply = botReplies[Math.floor(Math.random() * botReplies.length)];
-        setMessages((prev) => [
-          ...prev,
-          { sender: "🤖 Bot", text: reply, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) },
-        ]);
-      }, 1000 + Math.random() * 1500);
+  const playTile = (tile: Tile, index: number) => {
+    if (currentTurn !== 'player' || gameOver) return;
+    
+    // Check of tile gelegd kan worden
+    if (board.length === 0) {
+      // Eerste tile mag altijd
+      setBoard([tile]);
+      setPlayerHand(prev => prev.filter((_, i) => i !== index));
+      
+      const playMsg: Message = {
+        sender: 'SYSTEM',
+        text: lang === 'NL' ? `🎯 Je legde [${tile[0]}|${tile[1]}] op het bord` : `🎯 تۆ [${tile[0]}|${tile[1]}] لە تەختەیەکدا`,
+        time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+      };
+      setMessages(prev => [...prev, playMsg]);
+      
+      // Check einde spel
+      if (playerHand.length === 1) {
+        setGameOver(true);
+        setWinner('player');
+        const winMsg: Message = {
+          sender: 'SYSTEM',
+          text: lang === 'NL' ? '🎉 JIJ HEBT GEWONNEN! Alle domino\'s gelegd!' : '🎉 تۆ بریار دایە! هەموو دومینۆتەکان',
+          time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+        };
+        setMessages(prev => [...prev, winMsg]);
+        return;
+      }
+      
+      setCurrentTurn('bot');
+      setTimeout(botPlay, 1500);
+    } else {
+      // Check aansluiting
+      const lastTile = board[board.length - 1];
+      const firstTile = board[0];
+      
+      if (tile[0] === lastTile[1] || tile[1] === lastTile[1] || 
+          tile[0] === firstTile[0] || tile[1] === firstTile[0]) {
+        
+        // Bepaal kant
+        if (tile[0] === lastTile[1]) {
+          setBoard(prev => [...prev, tile]);
+        } else if (tile[1] === lastTile[1]) {
+          setBoard(prev => [...prev, [tile[1], tile[0]]]);
+        } else if (tile[0] === firstTile[0]) {
+          setBoard(prev => [[tile[1], tile[0]], ...prev]);
+        } else if (tile[1] === firstTile[0]) {
+          setBoard(prev => [tile, ...prev]);
+        }
+        
+        setPlayerHand(prev => prev.filter((_, i) => i !== index));
+        
+        const playMsg: Message = {
+          sender: 'SYSTEM',
+          text: lang === 'NL' ? `🎯 Je legde [${tile[0]}|${tile[1]}]` : `🎯 تۆ [${tile[0]}|${tile[1]}]`,
+          time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+        };
+        setMessages(prev => [...prev, playMsg]);
+        
+        // Check einde spel
+        if (playerHand.length === 1) {
+          setGameOver(true);
+          setWinner('player');
+          const winMsg: Message = {
+            sender: 'SYSTEM',
+            text: lang === 'NL' ? '🎉 JIJ HEBT GEWONNEN!' : '🎉 تۆ بریار دایە!',
+            time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+          };
+          setMessages(prev => [...prev, winMsg]);
+          return;
+        }
+        
+        setCurrentTurn('bot');
+        setTimeout(botPlay, 1500);
+      } else {
+        // Kan niet gelegd worden
+        const errorMsg: Message = {
+          sender: 'SYSTEM',
+          text: lang === 'NL' ? '❌ Deze kan hier niet gelegd worden!' : '❌ ئەمە ناتوانرێت لێرەدا',
+          time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+        };
+        setMessages(prev => [...prev, errorMsg]);
+      }
     }
   };
 
-  // Domino tegel component
-  const DominoTile = ({ value, highlight }: { value: Tile; highlight?: boolean }) => {
-    const dots: number[][] = [[], [4], [2, 6], [2, 4, 6], [0, 2, 6, 8], [0, 2, 4, 6, 8], [0, 2, 3, 5, 6, 8]];
+  const botPlay = () => {
+    if (gameOver) return;
+    
+    let played = false;
+    
+    // Zoek een legale zet
+    for (let i = 0; i < botHand.length; i++) {
+      const tile = botHand[i];
+      
+      if (board.length === 0) {
+        // Eerste zet
+        setBoard([tile]);
+        setBotHand(prev => prev.filter((_, idx) => idx !== i));
+        played = true;
+        break;
+      } else {
+        const lastTile = board[board.length - 1];
+        const firstTile = board[0];
+        
+        if (tile[0] === lastTile[1] || tile[1] === lastTile[1] || 
+            tile[0] === firstTile[0] || tile[1] === firstTile[0]) {
+          
+          if (tile[0] === lastTile[1]) {
+            setBoard(prev => [...prev, tile]);
+          } else if (tile[1] === lastTile[1]) {
+            setBoard(prev => [...prev, [tile[1], tile[0]]]);
+          } else if (tile[0] === firstTile[0]) {
+            setBoard(prev => [[tile[1], tile[0]], ...prev]);
+          } else if (tile[1] === firstTile[0]) {
+            setBoard(prev => [tile, ...prev]);
+          }
+          
+          setBotHand(prev => prev.filter((_, idx) => idx !== i));
+          played = true;
+          
+          const botMsg: Message = {
+            sender: 'BOT',
+            text: lang === 'NL' ? '🤖 Bot legde een domino' : '🤖 بۆت دومینۆیەکی',
+            time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+          };
+          setMessages(prev => [...prev, botMsg]);
+          break;
+        }
+      }
+    }
+    
+    if (!played) {
+      // Bot kan niet spelen, trek een nieuwe domino
+      if (allDominoes.length > 14) {
+        const newDomino = allDominoes[14 + botHand.length];
+        setBotHand(prev => [...prev, newDomino]);
+        
+        const drawMsg: Message = {
+          sender: 'BOT',
+          text: lang === 'NL' ? '🤖 Bot trok een nieuwe domino' : '🤖 بۆت دومینۆیەکی نوی',
+          time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+        };
+        setMessages(prev => [...prev, drawMsg]);
+      } else {
+        // Geen domino's meer over
+        setGameOver(true);
+        setWinner('player');
+        const winMsg: Message = {
+          sender: 'SYSTEM',
+          text: lang === 'NL' ? '🎉 JIJ HEBT GEWONNEN! Bot kan niet meer spelen!' : '🎉 تۆ بریار دایە!',
+          time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+        };
+        setMessages(prev => [...prev, winMsg]);
+        return;
+      }
+    }
+    
+    // Check bot win
+    if (botHand.length === 0) {
+      setGameOver(true);
+      setWinner('bot');
+      const loseMsg: Message = {
+        sender: 'SYSTEM',
+        text: lang === 'NL' ? '💔 JE HEBT VERLOREN! Bot won!' : '💔 تۆ شکست خۆری!',
+        time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+      };
+      setMessages(prev => [...prev, loseMsg]);
+    } else {
+      setCurrentTurn('player');
+    }
+  };
+
+  const DominoTile = ({ value, onClick, small = false }: { value: Tile, onClick?: () => void, small?: boolean }) => {
+    const dots = [
+      [], // 0 dots
+      [4], // 1 dot
+      [2, 6], // 2 dots
+      [2, 4, 6], // 3 dots
+      [0, 2, 6, 8], // 4 dots
+      [0, 2, 4, 6, 8], // 5 dots
+      [0, 2, 3, 5, 6, 8] // 6 dots
+    ];
+    
     return (
-      <div
-        className={`w-10 h-20 bg-white rounded-lg border-2 flex flex-col items-center justify-around py-1 shadow-md m-0.5 transition-all duration-200 hover:scale-110 cursor-pointer ${
-          highlight ? "border-yellow-400 ring-2 ring-yellow-400 shadow-yellow-400/50 shadow-lg" : "border-gray-400"
-        }`}
+      <div 
+        onClick={onClick}
+        className={`bg-white rounded-lg border-2 border-gray-400 flex flex-col items-center justify-around py-1 shadow-md transition-transform hover:scale-105 ${
+          small ? 'w-8 h-16 m-0.5' : 'w-12 h-24 m-1'
+        } ${onClick ? 'cursor-pointer' : ''}`}
       >
-        {[0, 1].map((side) => (
-          <div key={side} className="grid grid-cols-3 gap-0.5 w-6 h-6">
+        {[0, 1].map((side, idx) => (
+          <div key={idx} className={`grid grid-cols-3 gap-0.5 ${small ? 'w-4 h-4' : 'w-7 h-7'}`}>
             {[...Array(9)].map((_, i) => (
-              <div
-                key={i}
-                className={`w-1.5 h-1.5 rounded-full ${
-                  dots[value[side]].includes(i) ? "bg-black" : "bg-transparent"
+              <div 
+                key={i} 
+                className={`rounded-full ${
+                  dots[value[side]].includes(i) 
+                    ? 'bg-black' 
+                    : 'bg-transparent'
                 }`}
               />
             ))}
@@ -342,286 +387,279 @@ export default function Home() {
     );
   };
 
-  // Bord tegel (kan horizontaal zijn)
-  const BoardTile = ({ value, flipped }: { value: Tile; flipped: boolean }) => {
-    const display: Tile = flipped ? [value[1], value[0]] : value;
-    const dots: number[][] = [[], [4], [2, 6], [2, 4, 6], [0, 2, 6, 8], [0, 2, 4, 6, 8], [0, 2, 3, 5, 6, 8]];
+  const EmojiPicker = () => {
+    const emojis = ['🔥', '👏', '😂', '👋', '🎯', '🎲', '🏆', '💯', '😎', '🤖'];
+    
     return (
-      <div className="w-16 h-8 bg-white rounded-md border-2 border-gray-500 flex flex-row items-center justify-around px-1 shadow-md mx-0.5">
-        {[0, 1].map((side) => (
-          <div key={side} className="grid grid-cols-3 gap-0.5 w-5 h-5">
-            {[...Array(9)].map((_, i) => (
-              <div
-                key={i}
-                className={`w-1 h-1 rounded-full ${
-                  dots[display[side]].includes(i) ? "bg-black" : "bg-transparent"
-                }`}
-              />
-            ))}
-          </div>
-        ))}
+      <div className="absolute bottom-12 right-0 bg-gray-800 p-2 rounded-lg shadow-lg">
+        <div className="flex flex-wrap gap-1 w-32">
+          {emojis.map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => {
+                sendChat(emoji);
+                setShowEmojis(false);
+              }}
+              className="text-xl hover:bg-gray-700 p-1 rounded"
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
       </div>
     );
   };
 
   return (
-    <main
-      className={`min-h-screen flex flex-col items-center justify-center relative ${
-        view === "menu" ? "bg-gradient-to-b from-[#E31E24] via-white to-[#278E43]" : "bg-[#143d1a]"
-      }`}
-    >
-      {/* Taal */}
+    <main className={`min-h-screen flex flex-col items-center justify-center relative ${
+      view === 'menu' 
+        ? 'bg-gradient-to-b from-[#E31E24] via-white to-[#278E43]' 
+        : 'bg-[#143d1a]'
+    }`}>
+      
+      {/* VERTALING */}
       <div className="absolute top-4 right-4 flex gap-2 z-50">
-        <button
-          onClick={() => setLang("KU")}
+        <button 
+          onClick={() => setLang('KU')} 
           className={`px-3 py-1 rounded-full font-bold text-xs ${
-            lang === "KU" ? "bg-yellow-500 text-black" : "bg-white/20 text-white"
+            lang === 'KU' ? 'bg-yellow-500 text-black' : 'bg-white/20 text-white'
           }`}
         >
           KU
         </button>
-        <button
-          onClick={() => setLang("NL")}
+        <button 
+          onClick={() => setLang('NL')} 
           className={`px-3 py-1 rounded-full font-bold text-xs ${
-            lang === "NL" ? "bg-yellow-500 text-black" : "bg-white/20 text-white"
+            lang === 'NL' ? 'bg-yellow-500 text-black' : 'bg-white/20 text-white'
           }`}
         >
           NL
         </button>
       </div>
 
-      {view === "menu" ? (
+      {view === 'menu' ? (
         <div className="flex flex-col items-center z-10 w-full max-w-xs p-4">
-          <h1 className="text-6xl font-black text-white italic mb-2 drop-shadow-2xl">DOMINO</h1>
-          <p className="text-white/70 text-sm mb-6">🎲 28 stenen • 7 per speler</p>
-
-          {/* Naam */}
-          <input
-            type="text"
-            placeholder="Je naam..."
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value || "Speler")}
-            className="w-full p-2 rounded-lg text-center font-bold mb-4 text-black"
-          />
-
-          <button
-            onClick={() => startGame("bot")}
-            className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl border-b-8 border-blue-900 mb-4 active:translate-y-1 hover:bg-blue-500 transition-colors"
+          <h1 className="text-6xl font-black text-white italic mb-8 drop-shadow-2xl">
+            DOMINO
+          </h1>
+          
+          <button 
+            onClick={() => {
+              setView('game');
+              setRoomCode('BOT');
+              startNewGame();
+            }} 
+            className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl border-b-8 border-blue-900 mb-4 active:translate-y-1"
           >
-            🤖 {lang === "KU" ? "یاری دژی بۆت" : "Tegen Bot"}
+            🤖 {lang === 'KU' ? 'یاری دژی بۆت' : 'Tegen Bot'}
           </button>
-
-          <button
-            onClick={handleCreateRoom}
-            className="w-full bg-green-600 text-white font-black py-4 rounded-2xl border-b-8 border-green-900 mb-4 active:translate-y-1 hover:bg-green-500 transition-colors"
+          
+          <button 
+            onClick={handleCreateRoom} 
+            className="w-full bg-green-600 text-white font-black py-4 rounded-2xl border-b-8 border-green-900 mb-4 active:translate-y-1"
           >
-            🏠 {lang === "KU" ? "دروستکردنی ژوور" : "Kamer Maken"}
+            🏠 {lang === 'KU' ? 'دروستکردنی ژوور' : 'Kamer Maken'}
           </button>
-
+          
           <div className="bg-purple-600 p-4 rounded-2xl border-b-8 border-purple-900 w-full">
-            <input
-              type="text"
-              placeholder="CODE..."
-              value={inputCode}
-              onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-              className="w-full p-2 rounded-lg text-center font-bold mb-2 uppercase text-black"
-              maxLength={5}
+            <input 
+              type="text" 
+              placeholder={lang === 'KU' ? 'کۆد...' : 'CODE...'} 
+              value={inputCode} 
+              onChange={(e) => setInputCode(e.target.value.toUpperCase())} 
+              className="w-full p-2 rounded-lg text-center font-bold mb-2 uppercase text-black" 
             />
-            <button
+            <button 
               onClick={handleJoinRoom}
-              className="w-full text-white font-black text-sm py-2 bg-purple-800 rounded-lg hover:bg-purple-700 transition-colors"
+              className="w-full bg-yellow-500 text-white font-black text-sm py-2 rounded-lg hover:bg-yellow-600"
             >
-              {lang === "KU" ? "چوونە ناو ژوور" : "Joinen"}
+              {lang === 'KU' ? 'چوونە ناو ژوور' : 'Join Kamer'}
             </button>
           </div>
+          
+          {roomCode && (
+            <div className="mt-4 text-white text-center">
+              <p>{lang === 'KU' ? 'کۆدی ژوور:' : 'Jouw kamercode:'}</p>
+              <p className="text-2xl font-bold bg-white/20 p-2 rounded">{roomCode}</p>
+            </div>
+          )}
         </div>
       ) : (
-        <div className="w-full h-screen flex flex-col p-2 md:p-4 max-w-6xl">
-          {/* Top bar */}
-          <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
-            <button
-              onClick={() => setView("menu")}
+        <div className="w-full h-full flex flex-col p-4 max-w-6xl">
+          <div className="flex justify-between items-center mb-2">
+            <button 
+              onClick={() => {
+                if (socket) socket.disconnect();
+                setView('menu');
+                setIsInRoom(false);
+              }} 
               className="bg-white/10 text-white px-3 py-1 rounded-lg text-sm hover:bg-white/20"
             >
-              ↩ Menu
+              ↩ {lang === 'KU' ? 'گەڕانەوە' : 'Terug'}
             </button>
-
-            <div className="flex items-center gap-2">
+            
+            <div className="flex gap-4">
               <div className="bg-yellow-500 text-black px-4 py-1 rounded-lg font-bold text-sm">
                 ROOM: {roomCode}
               </div>
-              {roomCode !== "BOT" && (
-                <button
-                  onClick={copyCode}
-                  className="bg-white/20 text-white px-3 py-1 rounded-lg text-xs hover:bg-white/30"
-                >
-                  {copied ? "✅ Gekopieerd!" : "📋 Kopieer"}
-                </button>
+              
+              {isInRoom && (
+                <div className="bg-blue-500 text-white px-4 py-1 rounded-lg font-bold text-sm">
+                  👥 {playersInRoom.length} {lang === 'KU' ? 'یاریزان' : 'Spelers'}
+                </div>
               )}
-            </div>
-
-            <div className="flex gap-3 text-white text-xs">
-              <span>🎴 Jij: {playerHand.length}</span>
-              {mode === "bot" && <span>🤖 Bot: {botHand.length}</span>}
-              <span>📦 Pot: {pile.length}</span>
+              
+              <div className="bg-gray-700 text-white px-4 py-1 rounded-lg font-bold text-sm">
+                {currentTurn === 'player' 
+                  ? (lang === 'KU' ? '✅ نوبەتی تۆ' : '✅ Jouw beurt') 
+                  : (lang === 'KU' ? '⏳ نوبەتی بۆت' : '⏳ Bot beurt')
+                }
+              </div>
             </div>
           </div>
 
-          {/* Game over banner */}
-          {gameOver && (
-            <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-black text-center py-3 rounded-2xl mb-2 text-xl animate-pulse">
-              {gameOver}
-              <button
-                onClick={() => startGame(mode)}
-                className="ml-4 bg-black text-white px-4 py-1 rounded-lg text-sm font-bold"
-              >
-                🔄 Opnieuw
-              </button>
-            </div>
-          )}
-
-          <div className="flex gap-2 flex-1 min-h-0">
+          <div className="flex gap-4 h-[65vh]">
             {/* Speelveld */}
-            <div className="flex-1 border-4 border-white/10 rounded-[20px] bg-black/20 flex flex-col items-center justify-center p-2 overflow-auto relative">
-              {/* Turn indicator */}
-              <div
-                className={`absolute top-2 left-2 px-3 py-1 rounded-full text-xs font-bold ${
-                  turn === "player" ? "bg-green-500 text-black" : "bg-red-500 text-white"
-                }`}
-              >
-                {turn === "player" ? "🟢 Jouw beurt" : "🔴 Bot denkt..."}
-              </div>
-
+            <div className="flex-1 border-4 border-white/10 rounded-[30px] bg-black/20 flex items-center justify-center p-4 overflow-auto">
               {board.length === 0 ? (
-                <div className="text-white/50 text-sm text-center">
-                  {lang === "KU" ? "یەکەم تابلۆ دابنێ!" : "Speel je eerste tegel!"}
-                  <br />
-                  <span className="text-xs">Klik op een tegel hieronder</span>
+                <div className="text-white/70 text-center">
+                  <p className="text-xl">🎯 {lang === 'KU' ? 'دومینۆیەک هەڵببە' : 'Leg een domino'}</p>
+                  <p className="text-sm mt-2">
+                    {lang === 'KU' 
+                      ? 'بۆ دەستپێکردن، هەر دومینۆیەک هەڵببە' 
+                      : 'Klik op een tegel uit je hand om te beginnen'
+                    }
+                  </p>
                 </div>
               ) : (
-                <div className="flex flex-wrap justify-center items-center gap-0.5 p-2">
-                  {board.map((b, i) => (
-                    <BoardTile key={i} value={b.tile} flipped={b.flipped} />
+                <div className="flex flex-wrap justify-center gap-1">
+                  {board.map((tile, i) => (
+                    <DominoTile key={i} value={tile} />
                   ))}
                 </div>
               )}
             </div>
 
             {/* CHAT BOX */}
-            <div className="w-56 md:w-64 bg-black/30 rounded-[20px] flex flex-col p-3 border border-white/10">
-              <div className="text-white font-bold text-xs mb-1 text-center">
-                💬 Chat
-              </div>
-
-              <div className="flex-1 overflow-y-auto mb-2 space-y-1 min-h-0">
-                {messages.map((m, i) => (
-                  <div
-                    key={i}
-                    className={`p-2 rounded-lg text-xs ${
-                      m.sender === "⚙️"
-                        ? "bg-blue-500/20 text-blue-300 italic"
-                        : m.sender === "🤖 Bot"
-                        ? "bg-red-500/20 text-red-300"
-                        : "bg-white/10 text-white"
-                    }`}
-                  >
-                    <div className="flex justify-between">
-                      <span className="font-bold text-yellow-500">{m.sender}</span>
-                      <span className="text-white/30 text-[10px]">{m.time}</span>
-                    </div>
-                    <div className="mt-0.5">{m.text}</div>
+            <div className="w-72 bg-black/30 rounded-[30px] flex flex-col p-4 border border-white/10 relative">
+              <div className="flex-1 overflow-y-auto mb-2 space-y-2">
+                {messages.map((msg, i) => (
+                  <div key={i} className={`p-2 rounded-lg text-xs text-white ${
+                    msg.sender === 'SYSTEM' 
+                      ? 'bg-blue-600/30' 
+                      : msg.sender === 'BOT' 
+                        ? 'bg-purple-600/30' 
+                        : 'bg-white/10'
+                  }`}>
+                    <span className={`font-bold ${
+                      msg.sender === 'SYSTEM' ? 'text-blue-300' : 
+                      msg.sender === 'BOT' ? 'text-purple-300' : 'text-yellow-500'
+                    }`}>
+                      {msg.sender}: 
+                    </span>
+                    <span className="ml-1">{msg.text}</span>
+                    <div className="text-gray-400 text-[10px] mt-1">{msg.time}</div>
                   </div>
                 ))}
-                <div ref={bottomRef} />
+                <div className="text-center text-white/50 text-xs py-2">
+                  {lang === 'KU' ? '--- پەیامی نوێ ---' : '--- Nieuw bericht ---'}
+                </div>
               </div>
-
-              {/* Emoji picker */}
-              {showEmojis && (
-                <div className="grid grid-cols-6 gap-1 mb-2 bg-black/40 p-2 rounded-lg max-h-24 overflow-y-auto">
-                  {emojis.map((e) => (
-                    <button
-                      key={e}
-                      onClick={() => setCurrentMsg((prev) => prev + e)}
-                      className="hover:bg-white/20 rounded p-0.5 text-sm transition-colors"
+              
+              <div className="relative">
+                {showEmojis && <EmojiPicker />}
+                
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {['🔥', '👏', '😂', '👋', '🎯'].map((e) => (
+                    <button 
+                      key={e} 
+                      onClick={() => sendChat(e)} 
+                      className="bg-white/5 p-1 rounded hover:bg-white/20 text-lg"
                     >
                       {e}
                     </button>
                   ))}
+                  <button 
+                    onClick={() => setShowEmojis(!showEmojis)}
+                    className="bg-white/5 p-1 rounded hover:bg-white/20 text-sm"
+                  >
+                    😀+
+                  </button>
                 </div>
-              )}
-
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setShowEmojis(!showEmojis)}
-                  className="bg-white/10 px-2 rounded text-sm hover:bg-white/20"
-                >
-                  😊
-                </button>
-                <input
-                  value={currentMsg}
-                  onChange={(e) => setCurrentMsg(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") sendChat(currentMsg);
-                  }}
-                  className="flex-1 bg-white/10 rounded p-1 text-xs text-white outline-none focus:ring-1 focus:ring-yellow-500"
-                  placeholder="Typ..."
-                />
-                <button
-                  onClick={() => sendChat(currentMsg)}
-                  className="bg-green-600 px-2 rounded text-xs text-white font-bold hover:bg-green-500"
-                >
-                  ➤
-                </button>
+                
+                <div className="flex gap-1">
+                  <input 
+                    value={currentMsg} 
+                    onChange={e => setCurrentMsg(e.target.value)} 
+                    onKeyPress={e => e.key === 'Enter' && sendChat(currentMsg)} 
+                    className="flex-1 bg-white/10 rounded p-2 text-sm text-white" 
+                    placeholder={lang === 'KU' ? 'پەیام بنێڵە...' : 'Typ een bericht...'} 
+                  />
+                  <button 
+                    onClick={() => sendChat(currentMsg)} 
+                    className="bg-green-600 px-3 rounded text-sm text-white font-bold hover:bg-green-700"
+                  >
+                    {lang === 'KU' ? 'ناردن' : 'SEND'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Speler hand + acties */}
-          <div className="bg-black/40 p-3 rounded-[20px] border-t-4 border-yellow-500 mt-2">
+          {/* Hand van de speler */}
+          <div className="bg-black/40 p-4 rounded-[30px] border-t-4 border-yellow-500 mt-4">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-white text-xs font-bold">
-                🎴 {lang === "KU" ? "تابلۆکانت" : "Jouw stenen"} ({playerHand.length})
-              </span>
-              <div className="flex gap-2">
-                {!canPlayerPlay() && pile.length > 0 && turn === "player" && !gameOver && (
-                  <span className="text-red-400 text-xs animate-pulse">⚠️ Geen opties! Pak uit pot →</span>
-                )}
-                <button
-                  onClick={drawFromPile}
-                  disabled={turn !== "player" || pile.length === 0 || !!gameOver}
-                  className="bg-blue-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  📦 Pak ({pile.length})
-                </button>
+              <div className="text-white">
+                <span className="font-bold">{lang === 'KU' ? 'دومینۆیەکانت:' : 'Jouw hand:'}</span>
+                <span className="ml-2 bg-yellow-500 text-black px-2 py-1 rounded-full text-sm">
+                  {playerHand.length} {lang === 'KU' ? 'دومینۆ' : 'stukken'}
+                </span>
               </div>
+              
+              {gameOver && (
+                <div className={`font-bold px-4 py-2 rounded-lg ${
+                  winner === 'player' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                }`}>
+                  {winner === 'player' 
+                    ? (lang === 'KU' ? '🏆 بریار! 🎉' : '🏆 GEWONNEN! 🎉')
+                    : (lang === 'KU' ? '💔 شکست خۆڕی! 🤖' : '💔 VERLOREN! 🤖')
+                  }
+                </div>
+              )}
             </div>
-
-            <div className="flex justify-center gap-1 overflow-x-auto pb-1">
-              {playerHand.map((t, i) => {
-                const ends = getEnds(board);
-                const playable =
-                  board.length === 0 || canPlay(t, board.map((b) => b.tile), ends) !== null;
-                return (
-                  <div
-                    key={i}
-                    onClick={() => handlePlayTile(t, i)}
-                    className={`transition-all duration-200 ${
-                      turn !== "player" || gameOver
-                        ? "opacity-30 pointer-events-none"
-                        : playable
-                        ? "hover:-translate-y-2"
-                        : "opacity-50"
-                    }`}
-                    title={
-                      playable
-                        ? `Speel [${t[0]}|${t[1]}]`
-                        : "Past niet"
-                    }
-                  >
-                    <DominoTile value={t} highlight={playable && turn === "player"} />
+            
+            <div className="flex justify-center gap-2 overflow-x-auto py-2">
+              {playerHand.map((tile, i) => (
+                <div key={i} className="relative">
+                  <DominoTile 
+                    value={tile} 
+                    onClick={() => playTile(tile, i)}
+                  />
+                  <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {i + 1}
                   </div>
-                );
-              })}
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex justify-center gap-2 mt-2">
+              <button 
+                onClick={startNewGame}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700"
+              >
+                {lang === 'KU' ? '🔄 یاری نوو' : '🔄 Nieuw Spel'}
+              </button>
+              
+              <button 
+                onClick={() => {
+                  if (socket) socket.disconnect();
+                  setView('menu');
+                  setIsInRoom(false);
+                }}
+                className="bg-gray-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-gray-700"
+              >
+                {lang === 'KU' ? '🚪 چوونە دەرەوە' : '🚪 Verlaten'}
+              </button>
             </div>
           </div>
         </div>
