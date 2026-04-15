@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 
-const SOCKET_URL = "https://dominos-jkbr.onrender.com";
+const SOCKET_URL = "https://dominos-app.onrender.com";
 
 type Tile = [number, number];
 type Msg = { sender: string; text: string; time: string };
@@ -62,7 +62,6 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [status, setStatus] = useState<"off" | "on" | "err">("off");
   const [joinErr, setJoinErr] = useState("");
-  const [pIdx, setPIdx] = useState(0);
 
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [msg, setMsg] = useState("");
@@ -71,7 +70,6 @@ export default function Home() {
 
   const sock = useRef<Socket | null>(null);
   const btm = useRef<HTMLDivElement>(null);
-  const pIdxRef = useRef(0);
 
   const emos = ["🔥", "👏", "😂", "👋", "😍", "😎", "💯", "😡", "🥳", "😭", "🤣", "💀", "🎉", "❤️", "👑", "🐐", "😈", "💪", "🙏", "☀️", "🎲", "👍", "😤", "🥶"];
 
@@ -82,136 +80,116 @@ export default function Home() {
     setTab(prev => { if (prev !== "chat") setUnread(c => c + 1); return prev; });
   }, []);
 
-  // ✅ Socket verbinding
+  // ✅ Socket - alle events
   useEffect(() => {
-    console.log("🔌 Connecting to:", SOCKET_URL);
-
     const s = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 50,
       reconnectionDelay: 1000,
       timeout: 30000,
-      forceNew: true,
     });
     sock.current = s;
 
     s.on("connect", () => {
       setStatus("on");
-      console.log("✅ Connected! ID:", s.id);
+      console.log("✅ Connected:", s.id);
     });
-    s.on("connect_error", (err) => {
-      setStatus("err");
-      console.error("❌ Connection error:", err.message);
-    });
-    s.on("disconnect", (reason) => {
-      setStatus("off");
-      console.log("🔌 Disconnected:", reason);
-    });
+    s.on("connect_error", () => setStatus("err"));
+    s.on("disconnect", () => setStatus("off"));
 
-    // ✅ Room created
+    // ✅ Room created - alleen voor de MAKER
     s.on("roomCreated", ({ code }: { code: string }) => {
       console.log("🏠 Room created:", code);
       setRoom(code);
       setWaiting(true);
-      setView("game");
       setMode("online");
+      setView("game");  // ← ga naar game scherm
       setGameOver(null);
       setMsgs([]);
       setTab("board");
-      setTimeout(() => sys(`☀️ Kamer ${code} aangemaakt! Stuur deze code naar je vriend!`), 200);
     });
 
-    // ✅ Join error
-    s.on("joinError", (m: string) => {
-      console.log("❌ Join error:", m);
-      setJoinErr(m);
-    });
-
-    // ✅ Game started
+    // ✅ Game started - voor BEIDE spelers
     s.on("gameStarted", ({ p1, p2 }: { p1: string; p2: string }) => {
       console.log("🎮 Game started:", p1, "vs", p2);
       setWaiting(false);
+      setMode("online");
+      setView("game");  // ← BELANGRIJK: ook de joiner gaat naar game scherm
+      setGameOver(null);
       sys(`🎮 ${p1} vs ${p2} - LET'S GO!`);
     });
 
-    // ✅ Game state - BELANGRIJK: hier worden hand + bord bijgewerkt
-    s.on("gameState", (data: {
-      board: BE[];
-      hand: Tile[];
-      turn: number;
-      pileCount: number;
-      opponentHandCount: number;
-      opponentName: string;
-      playerIndex: number;
-      started: boolean;
-      winner: { index: number; name: string } | null;
-    }) => {
-      console.log("📊 GameState:", {
-        handCount: data.hand.length,
-        boardCount: data.board.length,
+    // ✅ Game state - update bord, hand, etc
+    s.on("gameState", (data: any) => {
+      console.log("📊 State:", {
+        hand: data.hand?.length,
+        board: data.board?.length,
         turn: data.turn,
-        myIndex: data.playerIndex,
-        isMyTurn: data.turn === data.playerIndex,
+        myIdx: data.playerIndex,
+        myTurn: data.turn === data.playerIndex,
+        opp: data.opponentName,
         oppHand: data.opponentHandCount,
         pile: data.pileCount,
         started: data.started,
       });
 
-      setBoard(data.board);
-      setHand(data.hand);
-      setPileCount(data.pileCount);
-      setOppCount(data.opponentHandCount);
-      setOppName(data.opponentName);
-      setPIdx(data.playerIndex);
-      pIdxRef.current = data.playerIndex;
+      setBoard(data.board || []);
+      setHand(data.hand || []);
+      setPileCount(data.pileCount || 0);
+      setOppCount(data.opponentHandCount || 0);
+      setOppName(data.opponentName || "Wacht...");
       setMyTurn(data.turn === data.playerIndex);
 
-      if (data.started) setWaiting(false);
+      // ✅ Als we een room code nog niet hebben (joiner), zet die
+      if (data.started) {
+        setWaiting(false);
+        setView("game");  // ← zorg dat we ALTIJD in game view zijn
+        setMode("online");
+      }
 
       if (data.winner) {
-        const won = data.winner.index === data.playerIndex;
-        setGameOver(won ? "🎉 JIJ WINT!" : `💀 ${data.winner.name} wint!`);
+        setGameOver(data.winner.index === data.playerIndex ? "🎉 JIJ WINT!" : `💀 ${data.winner.name} wint!`);
       }
     });
 
-    s.on("tilePlayed", ({ playerName, tile }: { playerName: string; tile: Tile }) => {
-      sys(`🎯 ${playerName}: [${tile[0]}|${tile[1]}]`);
+    s.on("joinError", (m: string) => {
+      console.log("❌ Join error:", m);
+      setJoinErr(m);
     });
-    s.on("playerPassed", ({ name: n }: { name: string }) => sys(`⏭️ ${n} past`));
+
+    s.on("tilePlayed", ({ playerName, tile }: any) => sys(`🎯 ${playerName}: [${tile[0]}|${tile[1]}]`));
+    s.on("playerPassed", ({ name: n }: any) => sys(`⏭️ ${n} past`));
     s.on("chatMsg", (m: Msg) => {
       setMsgs(p => [...p, m]);
       setTab(prev => { if (prev !== "chat") setUnread(c => c + 1); return prev; });
     });
     s.on("opponentLeft", () => {
-      sys("❌ Tegenstander heeft het spel verlaten!");
+      sys("❌ Tegenstander weg!");
       setGameOver("❌ Tegenstander weg");
     });
     s.on("gameRestarted", () => {
       setGameOver(null);
-      sys("🔄 Nieuw spel gestart!");
+      sys("🔄 Nieuw spel!");
     });
     s.on("playError", (m: string) => sys(`❌ ${m}`));
     s.on("drawError", (m: string) => sys(`❌ ${m}`));
 
-    return () => {
-      s.removeAllListeners();
-      s.disconnect();
-    };
+    return () => { s.removeAllListeners(); s.disconnect(); };
   }, [sys]);
 
   // === ONLINE ===
   const oCreate = () => {
     if (status !== "on") {
-      setJoinErr("Server start op... wacht ~15 sec en probeer opnieuw!");
+      setJoinErr("Server start op... wacht ~15 sec!");
       fetch(SOCKET_URL).catch(() => {});
       return;
     }
     setJoinErr("");
-    console.log("📤 Emitting createRoom:", name || "Speler");
     sock.current?.emit("createRoom", { playerName: name || "Speler" });
   };
 
+  // ✅ Join - na emit gaat de frontend automatisch naar game via gameStarted + gameState events
   const oJoin = () => {
     const c = input.trim().toUpperCase();
     if (!c) { setJoinErr("Vul een code in!"); return; }
@@ -221,28 +199,22 @@ export default function Home() {
       return;
     }
     setJoinErr("");
-    console.log("📤 Emitting joinRoom:", c, name || "Speler");
+
+    // ✅ Sla room code alvast op zodat we die hebben als gameState binnenkomt
+    setRoom(c);
+    setMode("online");
+    setMsgs([]);
+    setTab("board");
+    setGameOver(null);
+
+    console.log("📤 Joining room:", c);
     sock.current?.emit("joinRoom", { code: c, playerName: name || "Speler" });
   };
 
-  const oPlay = (i: number) => {
-    if (!myTurn || gameOver) return;
-    console.log("📤 Emitting playTile:", i);
-    sock.current?.emit("playTile", { tileIndex: i });
-  };
-  const oDraw = () => {
-    if (!myTurn || gameOver) return;
-    sock.current?.emit("drawTile");
-  };
-  const oPass = () => {
-    if (!myTurn || gameOver) return;
-    sock.current?.emit("passTurn");
-  };
-  const oChat = (t: string) => {
-    if (!t.trim()) return;
-    sock.current?.emit("sendChat", { text: t.trim() });
-    setMsg(""); setShowEm(false);
-  };
+  const oPlay = (i: number) => { if (myTurn && !gameOver) sock.current?.emit("playTile", { tileIndex: i }); };
+  const oDraw = () => { if (myTurn && !gameOver) sock.current?.emit("drawTile"); };
+  const oPass = () => { if (myTurn && !gameOver) sock.current?.emit("passTurn"); };
+  const oChat = (t: string) => { if (t.trim()) { sock.current?.emit("sendChat", { text: t.trim() }); setMsg(""); setShowEm(false); } };
   const oRestart = () => sock.current?.emit("restartGame");
 
   // === BOT ===
@@ -377,6 +349,7 @@ export default function Home() {
         <button onClick={() => setLang("NL")} className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${lang === "NL" ? "bg-yellow-500 text-black" : "bg-black/40 text-white/60"}`}>NL</button>
       </div>
 
+      {/* ===== MENU ===== */}
       {view === "menu" ? (
         <div className="flex flex-col items-center z-10 w-full max-w-[300px] px-5 py-4">
           <div className="relative mb-1">
@@ -407,13 +380,17 @@ export default function Home() {
           {status !== "on" && (
             <div className="mt-3 bg-yellow-500/20 rounded-xl p-2 w-full">
               <p className="text-yellow-300 text-[10px] text-center font-bold">⏳ Server start op... wacht ~15 sec</p>
-              <button onClick={() => fetch(SOCKET_URL).catch(() => {})} className="w-full mt-1 text-yellow-400 text-[10px] font-bold bg-yellow-500/10 rounded py-1 active:bg-yellow-500/20">🔄 Opnieuw proberen</button>
+              <button onClick={() => fetch(SOCKET_URL).catch(() => {})} className="w-full mt-1 text-yellow-400 text-[10px] font-bold bg-yellow-500/10 rounded py-1">🔄 Opnieuw</button>
             </div>
           )}
           <p className="text-white/20 text-[10px] mt-3">☀️ Biji Kurdistan</p>
         </div>
       ) : (
+
+        /* ===== GAME ===== */
         <div className="w-full h-[100dvh] flex flex-col z-10">
+
+          {/* Top */}
           <div className="flex items-center justify-between px-2 py-1.5 bg-black/60 flex-shrink-0">
             <button onClick={() => { setView("menu"); setWaiting(false); }} className="text-white/60 text-lg px-1 active:text-white">↩</button>
             <div className="flex items-center gap-1.5">
@@ -425,6 +402,7 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Waiting */}
           {waiting && (
             <div className="bg-gradient-to-r from-orange-500 to-yellow-500 text-black font-black text-center py-2.5 text-[11px] flex-shrink-0">
               ⏳ Stuur code naar je vriend!
@@ -433,6 +411,7 @@ export default function Home() {
             </div>
           )}
 
+          {/* Game over */}
           {gameOver && (
             <div className="bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 text-black font-black text-center py-3 text-base flex-shrink-0">
               {gameOver}
@@ -440,6 +419,7 @@ export default function Home() {
             </div>
           )}
 
+          {/* Mobile tabs */}
           <div className="flex sm:hidden flex-shrink-0">
             <button onClick={() => setTab("board")} className={`flex-1 py-2 text-xs font-bold ${tab === "board" ? "bg-green-900/50 text-green-400 border-b-2 border-green-400" : "text-white/30 bg-black/30"}`}>
               🎮 Spel
@@ -450,8 +430,11 @@ export default function Home() {
             </button>
           </div>
 
+          {/* Main */}
           <div className="flex-1 flex min-h-0">
+            {/* Board */}
             <div className={`flex-1 flex flex-col min-h-0 ${tab === "chat" ? "hidden sm:flex" : "flex"}`}>
+              {/* Opponent */}
               <div className="bg-black/40 px-2 py-1.5 flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-1.5">
                   <div className="w-7 h-7 rounded-full bg-red-900/80 flex items-center justify-center text-xs">👤</div>
@@ -460,6 +443,7 @@ export default function Home() {
                 <div className="flex gap-px overflow-hidden max-w-[55%]">{[...Array(Math.min(cOpp, 14))].map((_, i) => <Back key={i} />)}</div>
               </div>
 
+              {/* Table */}
               <div className="flex-1 relative overflow-auto" style={{ background: "radial-gradient(ellipse at center, #2D7A3A 0%, #1B5E27 50%, #0F3D14 100%)", boxShadow: "inset 0 0 80px rgba(0,0,0,0.5)" }}>
                 <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23000'/%3E%3Crect width='1' height='1' fill='%23222'/%3E%3C/svg%3E")`, backgroundSize: "4px 4px" }} />
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Sun s={90} c="opacity-[0.02]" /></div>
@@ -473,6 +457,7 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Player bar */}
               <div className="bg-black/50 px-2 py-1.5 flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-1.5">
                   <div className="w-7 h-7 rounded-full bg-yellow-700/80 flex items-center justify-center text-xs">☀️</div>
@@ -486,6 +471,7 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Chat */}
             <div className={`w-full sm:w-52 md:w-56 bg-black/40 flex flex-col border-l border-white/5 ${tab === "board" ? "hidden sm:flex" : "flex"}`}>
               <div className="text-white/40 font-bold text-[10px] text-center py-1.5 bg-white/5 hidden sm:block">💬 Chat</div>
               <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
@@ -512,6 +498,7 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Hand */}
           <div className="bg-gradient-to-t from-[#070710] via-[#0d1117] to-[#161b22] px-1.5 py-2 border-t-2 border-yellow-500/40 flex-shrink-0">
             {!canAny() && myTurn && !gameOver && cPile > 0 && (
               <div className="text-center text-red-400/80 text-[9px] font-bold mb-1 animate-pulse">⚠️ Pak uit de pot!</div>
