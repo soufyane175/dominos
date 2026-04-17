@@ -220,10 +220,11 @@ export default function Home() {
       const s = localStorage.getItem("domino_account");
       if (s) {
         const a = JSON.parse(s);
-        if (!a.diamonds) a.diamonds = 0;
-        if (!a.ownedSkins) a.ownedSkins = ["classic"];
-        if (!a.equippedSkin) a.equippedSkin = "classic";
-        if (a.inTournament === undefined) a.inTournament = false;
+        // Forceer admin voor admin123 account
+        if (a.username.toLowerCase() === "admin123") {
+            a.isAdmin = true;
+            a.diamonds = 999999;
+        }
         setAccount(a);
       }
     } catch (e) { }
@@ -244,7 +245,7 @@ export default function Home() {
     if (!authPass.trim() || authPass.trim().length < 3) { setAuthErr("Password too short!"); return; }
     
     const accs: Record<string, any> = JSON.parse(localStorage.getItem("domino_accounts") || "{}");
-    const isSpecialAdmin = authUser.trim() === "Admin123";
+    const isSpecialAdmin = authUser.trim().toLowerCase() === "admin123";
 
     if (authMode === "create") {
       if (accs[authUser.toLowerCase()]) { setAuthErr("Name taken!"); return; }
@@ -266,10 +267,10 @@ export default function Home() {
       const e = accs[authUser.toLowerCase()];
       if (!e) { setAuthErr("Not found!"); return; }
       if (e.password !== authPass) { setAuthErr("Wrong password!"); return; }
-      if (!e.account.diamonds) e.account.diamonds = 0;
-      if (!e.account.ownedSkins) e.account.ownedSkins = ["classic"];
-      if (!e.account.equippedSkin) e.account.equippedSkin = "classic";
-      if (isSpecialAdmin) e.account.isAdmin = true;
+      if (isSpecialAdmin) {
+          e.account.isAdmin = true;
+          e.account.diamonds = 999999;
+      }
       saveAccount(e.account);
     }
     setAuthErr("");
@@ -489,7 +490,7 @@ export default function Home() {
         <div className="fixed inset-0 z-[1] bg-black/50" />
 
         {/* Top bar */}
-        <div className="relative z-10 flex items-center justify-between px-3 py-2.5 bg-black/40 backdrop-blur-md border-b border-white/5">
+        <div className="relative z-50 flex items-center justify-between px-3 py-2.5 bg-black/40 backdrop-blur-md border-b border-white/5">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-xl border-2 border-yellow-300/50 shadow-lg">{account.avatar}</div>
             <div><div className="text-white font-bold text-sm">{account.username}</div><div className="text-white/30 text-[10px]">🏆{account.wins} 💀{account.losses}</div></div>
@@ -501,7 +502,7 @@ export default function Home() {
         </div>
 
         {/* Tab bar */}
-        <div className="relative z-10 flex bg-white/[0.04] backdrop-blur-md border-b border-white/5">
+        <div className="relative z-50 flex bg-white/[0.04] backdrop-blur-md border-b border-white/5">
           {(["play", "champions", "store", "admin"] as const).map(tb => {
             if (tb === "admin" && !account.isAdmin) return null;
             return (
@@ -638,7 +639,7 @@ export default function Home() {
       <div className="fixed inset-0 z-[1] bg-black/40" />
 
       {/* Game top bar */}
-      <div className="relative z-10 flex items-center justify-between px-2 py-1.5 bg-black/50 backdrop-blur-md">
+      <div className="relative z-50 flex items-center justify-between px-2 py-1.5 bg-black/50 backdrop-blur-md">
         <button onClick={() => { setView("menu"); setWaiting(false); }} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white text-sm">↩</button>
         <span className="bg-yellow-500 text-black px-2.5 py-1 rounded-lg font-black text-[11px]">{room}</span>
         <div className="flex items-center gap-1 bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 rounded-full"><span className="text-[10px]">💎</span><span className="text-white font-bold text-xs">{account.diamonds}</span></div>
