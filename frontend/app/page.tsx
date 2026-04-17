@@ -11,6 +11,7 @@ type Account = {
   username: string; wins: number; losses: number; games: number;
   avatar: string; created: number; diamonds: number;
   ownedSkins: string[]; equippedSkin: string; inTournament: boolean;
+  isAdmin?: boolean;
 };
 
 function getEnds(b: BE[]): [number, number] {
@@ -176,7 +177,7 @@ export default function Home() {
   const avatars = ["😎", "🤖", "👑", "🔥", "💀", "🐐", "☀️", "🦁", "🎲", "💪", "😈", "🥶", "⚡", "🌟", "🎯", "🧔"];
 
   const [view, setView] = useState<"menu" | "game">("menu");
-  const [menuTab, setMenuTab] = useState<"play" | "champions" | "store">("play");
+  const [menuTab, setMenuTab] = useState<"play" | "champions" | "store" | "admin">("play");
   const [storeTab, setStoreTab] = useState<"skins" | "gems">("skins");
   const [showTournament, setShowTournament] = useState(false);
   const [mode, setMode] = useState<"bot" | "online">("bot");
@@ -233,20 +234,31 @@ export default function Home() {
     setAccount(a);
     localStorage.setItem("domino_account", JSON.stringify(a));
     const accs: Record<string, any> = JSON.parse(localStorage.getItem("domino_accounts") || "{}");
-    if (accs[a.username.toLowerCase()]) {
-      accs[a.username.toLowerCase()].account = a;
-      localStorage.setItem("domino_accounts", JSON.stringify(accs));
-    }
+    accs[a.username.toLowerCase()] = { password: authPass || (accs[a.username.toLowerCase()]?.password), account: a };
+    localStorage.setItem("domino_accounts", JSON.stringify(accs));
   };
 
   const handleAuth = () => {
     if (authMode === "create" && authStep === 1) { setAuthStep(2); return; }
     if (!authUser.trim() || authUser.trim().length < 2) { setAuthErr("Name too short!"); return; }
     if (!authPass.trim() || authPass.trim().length < 3) { setAuthErr("Password too short!"); return; }
+    
     const accs: Record<string, any> = JSON.parse(localStorage.getItem("domino_accounts") || "{}");
+    const isSpecialAdmin = authUser.trim() === "Admin123";
+
     if (authMode === "create") {
       if (accs[authUser.toLowerCase()]) { setAuthErr("Name taken!"); return; }
-      const a: Account = { username: authUser.trim(), wins: 0, losses: 0, games: 0, avatar: authAvatar, created: Date.now(), diamonds: 100, ownedSkins: ["classic"], equippedSkin: "classic", inTournament: false };
+      const a: Account = { 
+        username: authUser.trim(), 
+        wins: 0, losses: 0, games: 0, 
+        avatar: authAvatar, 
+        created: Date.now(), 
+        diamonds: isSpecialAdmin ? 999999 : 100, 
+        ownedSkins: ["classic"], 
+        equippedSkin: "classic", 
+        inTournament: false,
+        isAdmin: isSpecialAdmin
+      };
       accs[authUser.toLowerCase()] = { password: authPass, account: a };
       localStorage.setItem("domino_accounts", JSON.stringify(accs));
       saveAccount(a);
@@ -257,6 +269,7 @@ export default function Home() {
       if (!e.account.diamonds) e.account.diamonds = 0;
       if (!e.account.ownedSkins) e.account.ownedSkins = ["classic"];
       if (!e.account.equippedSkin) e.account.equippedSkin = "classic";
+      if (isSpecialAdmin) e.account.isAdmin = true;
       saveAccount(e.account);
     }
     setAuthErr("");
@@ -459,7 +472,6 @@ export default function Home() {
                   <button onClick={() => { setAuthMode(authMode === "login" ? "create" : "login"); setAuthStep(authMode === "login" ? 1 : 2); setAuthErr(""); }} className="w-full text-white/30 text-xs text-center py-2">{authMode === "login" ? "Need account? →" : "Have account? →"}</button>
                 </div>
               )}
-              <button onClick={() => saveAccount({ username: "Guest_" + Math.floor(Math.random() * 999), wins: 0, losses: 0, games: 0, avatar: "👤", created: Date.now(), diamonds: 50, ownedSkins: ["classic"], equippedSkin: "classic", inTournament: false })} className="w-full text-white/15 text-[11px] text-center py-2 mt-1">Play as Guest →</button>
             </div>
           </div>
         </div>
@@ -490,11 +502,14 @@ export default function Home() {
 
         {/* Tab bar */}
         <div className="relative z-10 flex bg-white/[0.04] backdrop-blur-md border-b border-white/5">
-          {(["play", "champions", "store"] as const).map(tb => (
-            <button key={tb} onClick={() => { setMenuTab(tb); setShowTournament(false); }} className={`flex-1 py-3 text-xs font-black uppercase tracking-wider ${menuTab === tb ? "text-yellow-400 border-b-2 border-yellow-500 bg-yellow-500/10" : "text-white/25"}`}>
-              {tb === "play" ? "PLAY" : tb === "champions" ? "CHAMPIONS" : "STORE"}
-            </button>
-          ))}
+          {(["play", "champions", "store", "admin"] as const).map(tb => {
+            if (tb === "admin" && !account.isAdmin) return null;
+            return (
+              <button key={tb} onClick={() => { setMenuTab(tb); setShowTournament(false); }} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-wider ${menuTab === tb ? "text-yellow-400 border-b-2 border-yellow-500 bg-yellow-500/10" : "text-white/25"}`}>
+                {tb}
+              </button>
+            );
+          })}
         </div>
 
         <div className="relative z-10 flex-1 overflow-y-auto">
@@ -514,101 +529,77 @@ export default function Home() {
                   <div className="text-white/30 text-[10px] mt-1">Create & play online.</div>
                   <div className="mt-4 bg-yellow-500/20 text-yellow-300 text-[11px] font-black text-center py-2 rounded-xl border border-yellow-500/30">CREATE</div>
                 </button>
-                <button onClick={startBot} className="bg-gradient-to-b from-orange-500/20 to-orange-900/40 backdrop-blur rounded-2xl p-5 border border-orange-500/20 text-left active:scale-[0.97] transition-transform">
-                  <div className="w-14 h-14 rounded-full border-2 border-orange-500/40 flex items-center justify-center mb-3"><span className="text-2xl">⚡</span></div>
-                  <div className="text-white font-black text-sm">TURBO</div>
-                  <div className="text-white/30 text-[10px] mt-1">Fast-paced game.</div>
-                  <div className="mt-4 bg-orange-500/20 text-orange-300 text-[11px] font-black text-center py-2 rounded-xl border border-orange-500/30">PLAY</div>
-                </button>
-                <button onClick={() => setShowTournament(true)} className="bg-gradient-to-b from-green-500/15 to-green-900/30 backdrop-blur rounded-2xl p-5 border border-green-500/20 text-left active:scale-[0.97] transition-transform">
-                  <div className="w-14 h-14 rounded-full border-2 border-green-500/40 flex items-center justify-center mb-3"><span className="text-2xl">🏆</span></div>
-                  <div className="text-white font-black text-sm">TOURNAMENT</div>
-                  <div className="text-white/30 text-[10px] mt-1">Win prizes!</div>
-                  <div className="mt-4 bg-green-500/20 text-green-300 text-[11px] font-black text-center py-2 rounded-xl border border-green-500/30">VIEW</div>
-                </button>
               </div>
 
-              {/* CREATE ROOM */}
               <button onClick={oCreate} className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-black py-4 rounded-2xl text-base shadow-xl active:scale-[0.97] flex items-center justify-center gap-3 border border-green-400/30 mb-3">
                 <span className="text-xl">🏠</span><span>CREATE ROOM</span>
               </button>
 
-              {/* JOIN */}
               <div className="bg-white/[0.05] backdrop-blur rounded-2xl p-4 border border-purple-500/20 mb-3">
-                <div className="flex items-center gap-2 mb-3"><span className="text-lg">🚪</span><span className="text-white/50 text-xs font-black">JOIN FRIEND</span></div>
                 <div className="flex gap-2">
                   <input type="text" placeholder="CODE..." value={input} onChange={e => setInput(e.target.value.toUpperCase())} className="flex-1 p-3.5 rounded-xl text-center font-black uppercase text-black bg-white/90 text-lg tracking-[0.3em]" maxLength={5} />
                   <button onClick={oJoin} className="bg-gradient-to-r from-purple-500 to-purple-700 text-white font-black px-7 rounded-xl active:scale-95 shadow-lg">JOIN</button>
                 </div>
                 {joinErr && <p className="text-red-400 text-[10px] text-center mt-2 font-bold">⚠️ {joinErr}</p>}
               </div>
-
-              {status !== "on" && <div className="bg-yellow-500/10 rounded-xl p-3 text-center"><span className="text-yellow-300 text-xs font-bold">⏳ Server starting... </span><button onClick={() => fetch(SOCKET_URL).catch(() => {})} className="text-yellow-400 text-xs underline">Retry</button></div>}
             </div>
           )}
 
-          {/* TOURNAMENT */}
-          {menuTab === "play" && showTournament && (
-            <div className="p-4 max-w-[500px] mx-auto">
-              <div className="flex items-center justify-between mb-4">
-                <button onClick={() => setShowTournament(false)} className="text-white/50 bg-white/10 px-3 py-1.5 rounded-xl text-xs font-bold">← Back</button>
-                <div className="text-white font-black text-lg">🏆 TOURNAMENT</div>
-                <div className="bg-red-500/20 px-3 py-1 rounded-full text-orange-300 text-xs font-bold">⏰ 23:59:02</div>
+          {/* ADMIN TAB */}
+          {menuTab === "admin" && account.isAdmin && (
+            <div className="p-4 max-w-[500px] mx-auto space-y-4">
+              <h2 className="text-white font-black text-xl flex items-center gap-2 underline decoration-red-500">🛡️ ADMIN PANEL</h2>
+              <div className="space-y-2">
+                {getAllPlayers().map(p => (
+                  <div key={p.username} className="bg-white/5 p-3 rounded-xl flex items-center justify-between border border-white/10 backdrop-blur-lg">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{p.avatar}</span>
+                      <div>
+                        <div className="text-white font-bold text-sm">{p.username}</div>
+                        <div className="text-cyan-400 text-[10px] font-black">💎 {p.diamonds}</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => {
+                          const accs = JSON.parse(localStorage.getItem("domino_accounts") || "{}");
+                          if(accs[p.username.toLowerCase()]) {
+                            accs[p.username.toLowerCase()].account.diamonds += 1000;
+                            localStorage.setItem("domino_accounts", JSON.stringify(accs));
+                            alert("Done!"); window.location.reload();
+                          }
+                        }}
+                        className="bg-green-600 text-white text-[10px] px-3 py-1.5 rounded-lg font-black">+1K 💎</button>
+                      <button 
+                        onClick={() => {
+                          if(confirm("Delete " + p.username + "?")) {
+                            const accs = JSON.parse(localStorage.getItem("domino_accounts") || "{}");
+                            delete accs[p.username.toLowerCase()];
+                            localStorage.setItem("domino_accounts", JSON.stringify(accs));
+                            window.location.reload();
+                          }
+                        }}
+                        className="bg-red-600 text-white text-[10px] px-3 py-1.5 rounded-lg font-black">DEL</button>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="bg-white/[0.05] backdrop-blur rounded-2xl border border-yellow-500/20 overflow-hidden mb-4">
-                <div className="bg-yellow-500/10 px-4 py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2"><span className="bg-yellow-500 text-black text-[9px] font-black px-2 py-0.5 rounded">SOON</span><span className="text-white font-black text-lg">KURDISH CUP</span></div>
-                  <div className="flex items-center gap-2"><span className="bg-cyan-500/20 text-cyan-400 text-xs font-bold px-2 py-0.5 rounded border border-cyan-500/30">👥 {getAllPlayers().filter(p => p.inTournament).length}/1000</span><span className="bg-green-500/20 text-green-400 text-[10px] font-bold px-2 py-0.5 rounded border border-green-500/30">FREE</span></div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="bg-white/[0.04] rounded-2xl p-4 border border-white/10">
-                  <div className="text-yellow-400 text-xs font-black mb-3">🏆 PRIZES</div>
-                  <div className="space-y-2.5"><div className="flex justify-between"><span className="text-yellow-400 font-black">🥇 1ST</span><span className="text-cyan-400 font-bold">💎 100k</span></div><div className="flex justify-between"><span className="text-gray-300 font-black">🥈 2ND</span><span className="text-cyan-400 font-bold">💎 50K</span></div><div className="flex justify-between"><span className="text-orange-400 font-black">🥉 3RD</span><span className="text-cyan-400 font-bold">💎 10K</span></div></div>
-                </div>
-                <div className="bg-white/[0.04] rounded-2xl p-4 border border-white/10">
-                  <div className="text-yellow-400 text-xs font-black mb-3">👥 PLAYERS</div>
-                  <div className="space-y-1.5 max-h-[100px] overflow-y-auto">{getAllPlayers().filter(p => p.inTournament).map(p => (<div key={p.username} className="flex items-center gap-2 text-xs text-white/60"><span>{p.avatar}</span><span>{p.username}</span></div>))}{getAllPlayers().filter(p => p.inTournament).length === 0 && <div className="text-white/20 text-[10px]">No players</div>}</div>
-                </div>
-              </div>
-              <div className="bg-white/[0.04] rounded-2xl p-4 border border-white/10 mb-4">
-                <div className="text-yellow-400 text-xs font-black mb-3">📋 RULES</div>
-                <div className="grid grid-cols-2 gap-2 text-sm"><div className="flex justify-between text-white/40"><span>MODE</span><span className="text-white font-bold">Ranked</span></div><div className="flex justify-between text-white/40"><span>TEAM</span><span className="text-white font-bold">1v1</span></div><div className="flex justify-between text-white/40"><span>ENTRY</span><span className="text-green-400 font-bold">Free</span></div><div className="flex justify-between text-white/40"><span>TIMER</span><span className="text-white font-bold">15s</span></div></div>
-              </div>
-              <button onClick={toggleTournament} className={`w-full font-black py-4 rounded-2xl text-sm ${account.inTournament ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-gradient-to-r from-green-500 to-green-700 text-white shadow-lg"}`}>
-                {account.inTournament ? "↪ LEAVE TOURNAMENT" : "✅ JOIN TOURNAMENT"}
-              </button>
             </div>
           )}
 
           {/* CHAMPIONS */}
           {menuTab === "champions" && (
             <div className="p-4 max-w-[500px] mx-auto">
-              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-4 mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-4xl border-2 border-yellow-300 shadow-xl">{account.avatar}</div>
-                  <div className="flex-1"><div className="text-white font-black text-lg">{account.username}</div><div className="text-white/40 text-xs">Rank #{getAllPlayers().findIndex(p => p.username === account.username) + 1 || "?"}</div></div>
-                  <div className="grid grid-cols-3 gap-4 text-center"><div><div className="text-green-400 font-black text-xl">{account.wins}</div><div className="text-white/30 text-[9px]">W</div></div><div><div className="text-red-400 font-black text-xl">{account.losses}</div><div className="text-white/30 text-[9px]">L</div></div><div><div className="text-blue-400 font-black text-xl">{account.games}</div><div className="text-white/30 text-[9px]">G</div></div></div>
-                </div>
-                <div className="mt-3 h-2.5 bg-black/30 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-green-500 to-yellow-500 rounded-full" style={{ width: `${account.games > 0 ? (account.wins / account.games) * 100 : 0}%` }} /></div>
-              </div>
               <div className="bg-white/[0.04] rounded-2xl border border-white/10 overflow-hidden">
                 <div className="bg-white/5 px-4 py-2.5 text-white/40 text-xs font-black">LEADERBOARD</div>
-                {getAllPlayers().map((p, idx) => {
-                  const isMe = p.username === account.username;
-                  const wr = p.games > 0 ? Math.round((p.wins / p.games) * 100) : 0;
-                  return (
-                    <div key={p.username} className={`flex items-center gap-2.5 px-4 py-2.5 border-b border-white/5 ${isMe ? "bg-yellow-500/10" : ""}`}>
-                      <div className="w-7 text-center">{idx < 3 ? ["🥇", "🥈", "🥉"][idx] : <span className="text-white/20 text-xs">#{idx + 1}</span>}</div>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0 ${idx === 0 ? "bg-gradient-to-br from-yellow-400 to-yellow-600" : idx === 1 ? "bg-gradient-to-br from-gray-300 to-gray-500" : idx === 2 ? "bg-gradient-to-br from-orange-400 to-orange-700" : "bg-white/10"}`}>{p.avatar}</div>
-                      <div className="flex-1 min-w-0"><div className={`font-bold text-xs truncate ${isMe ? "text-yellow-400" : "text-white"}`}>{p.username}</div></div>
-                      <div className="text-green-400 text-xs font-bold w-8 text-center">{p.wins}</div>
-                      <div className="text-red-400 text-xs font-bold w-8 text-center">{p.losses}</div>
-                      <div className={`text-xs font-black w-10 text-center ${wr >= 60 ? "text-green-400" : wr >= 40 ? "text-yellow-400" : "text-red-400"}`}>{wr}%</div>
-                    </div>
-                  );
-                })}
-                {getAllPlayers().length === 0 && <div className="text-white/15 text-sm text-center py-10">No players yet</div>}
+                {getAllPlayers().map((p, idx) => (
+                  <div key={p.username} className={`flex items-center gap-2.5 px-4 py-2.5 border-b border-white/5 ${p.username === account.username ? "bg-yellow-500/10" : ""}`}>
+                    <div className="w-7 text-center">{idx < 3 ? ["🥇", "🥈", "🥉"][idx] : <span className="text-white/20 text-xs">#{idx + 1}</span>}</div>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10">{p.avatar}</div>
+                    <div className="flex-1 min-w-0 font-bold text-xs text-white truncate">{p.username}</div>
+                    <div className="text-green-400 text-xs font-bold">{p.wins} W</div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -616,46 +607,21 @@ export default function Home() {
           {/* STORE */}
           {menuTab === "store" && (
             <div className="p-4 max-w-[500px] mx-auto">
-              <div className="flex mb-4 bg-white/[0.04] rounded-xl overflow-hidden border border-white/10">
-                <button onClick={() => setStoreTab("skins")} className={`flex-1 py-3 text-sm font-black ${storeTab === "skins" ? "bg-yellow-500/20 text-yellow-400" : "text-white/25"}`}>SKINS</button>
-                <button onClick={() => setStoreTab("gems")} className={`flex-1 py-3 text-sm font-black ${storeTab === "gems" ? "bg-yellow-500/20 text-yellow-400" : "text-white/25"}`}>GEMS</button>
-              </div>
-              {storeTab === "skins" && (
-                <div>
-                  <div className="flex items-center gap-2 mb-4"><span className="text-white/40 text-xs font-black">DAILY ITEMS</span><span className="bg-yellow-500/20 text-yellow-400 text-[9px] font-bold px-2 py-0.5 rounded border border-yellow-500/30">REFRESHES IN 12H</span></div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {SKINS.map(skin => {
-                      const owned = account.ownedSkins.includes(skin.id);
-                      const equipped = account.equippedSkin === skin.id;
-                      const canBuyIt = account.diamonds >= skin.price;
-                      return (
-                        <div key={skin.id} className={`bg-white/[0.04] rounded-2xl border overflow-hidden ${equipped ? "border-green-500/40 ring-1 ring-green-500/20" : "border-white/10"}`}>
-                          <div className={`h-24 bg-gradient-to-br ${skin.bg} flex items-center justify-center text-5xl`}>{skin.emoji}</div>
-                          <div className="p-3">
-                            <div className="text-white font-bold text-xs">{skin.name}</div>
-                            <div className="text-white/30 text-[10px]">{skin.desc}</div>
-                            {equipped ? <div className="mt-2 bg-green-500/20 text-green-400 text-[10px] font-black text-center py-2 rounded-xl border border-green-500/30">✅ EQUIPPED</div>
-                              : owned ? <button onClick={() => equipSkin(skin.id)} className="mt-2 w-full bg-blue-500/15 text-blue-400 text-[10px] font-black text-center py-2 rounded-xl border border-blue-500/30">EQUIP</button>
-                                : skin.price === 0 ? <div className="mt-2 bg-white/5 text-white/20 text-[10px] font-black text-center py-2 rounded-xl">DEFAULT</div>
-                                  : <button onClick={() => buySkin(skin.id, skin.price)} disabled={!canBuyIt} className={`mt-2 w-full text-[10px] font-black text-center py-2 rounded-xl border flex items-center justify-center gap-1 ${canBuyIt ? "bg-cyan-500/15 text-cyan-400 border-cyan-500/30" : "bg-white/5 text-white/15 border-white/5 cursor-not-allowed"}`}>💎 {skin.price}</button>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {storeTab === "gems" && (
-                <div className="space-y-3">
-                  <p className="text-white/40 text-xs text-center mb-4">Win games to earn diamonds!<br /><span className="text-cyan-400">💎 100 per win</span> • <span className="text-white/30">💎 10 per loss</span></p>
-                  {[{ g: 500, n: "Starter Pack", b: "" }, { g: 1500, n: "Pro Pack", b: "+200 BONUS" }, { g: 5000, n: "Ultimate", b: "+1000 BONUS" }].map((pk, i) => (
-                    <div key={i} className="bg-white/[0.04] rounded-2xl border border-white/10 p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3"><span className="text-4xl">💎</span><div><div className="text-white font-bold">{pk.n}</div><div className="text-cyan-400 text-sm font-bold">{pk.g} Gems {pk.b && <span className="text-yellow-400">{pk.b}</span>}</div></div></div>
-                      <div className="text-white/20 text-xs font-bold bg-white/5 px-4 py-2 rounded-xl">PLAY TO EARN</div>
+              <div className="grid grid-cols-2 gap-3">
+                {SKINS.map(skin => (
+                  <div key={skin.id} className="bg-white/[0.04] rounded-2xl border border-white/10 overflow-hidden">
+                    <div className={`h-24 bg-gradient-to-br ${skin.bg} flex items-center justify-center text-5xl`}>{skin.emoji}</div>
+                    <div className="p-3">
+                      <div className="text-white font-bold text-xs">{skin.name}</div>
+                      {account.ownedSkins.includes(skin.id) ? (
+                        <button onClick={() => equipSkin(skin.id)} className="mt-2 w-full bg-blue-500/20 text-blue-400 text-[10px] font-black py-2 rounded-xl border border-blue-500/30">EQUIP</button>
+                      ) : (
+                        <button onClick={() => buySkin(skin.id, skin.price)} className="mt-2 w-full bg-cyan-500/20 text-cyan-400 text-[10px] font-black py-2 rounded-xl border border-cyan-500/30">💎 {skin.price}</button>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -668,160 +634,53 @@ export default function Home() {
     <main className="min-h-[100dvh] flex flex-col relative overflow-hidden">
       {showWin && <WinOverlay onClose={() => setShowWin(false)} />}
       {showLose && <LoseOverlay onClose={() => setShowLose(false)} />}
-
       <div className="fixed inset-0 z-0"><div className="absolute top-0 left-0 right-0 h-1/3 bg-[#ED2024]" /><div className="absolute top-1/3 left-0 right-0 h-1/3 bg-white" /><div className="absolute top-2/3 left-0 right-0 h-1/3 bg-[#21A038]" /><div className="absolute inset-0 flex items-center justify-center"><Sun s={400} c="opacity-[0.08]" /></div></div>
       <div className="fixed inset-0 z-[1] bg-black/40" />
 
       {/* Game top bar */}
       <div className="relative z-10 flex items-center justify-between px-2 py-1.5 bg-black/50 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <button onClick={() => { setView("menu"); setWaiting(false); setShowWin(false); setShowLose(false); }} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white text-sm active:bg-white/20">↩</button>
-          <span className="bg-yellow-500 text-black px-2.5 py-1 rounded-lg font-black text-[11px]">{room}</span>
-          {room !== "BOT" && <button onClick={copy} className="text-white/50 text-[10px] bg-white/10 px-2 py-1 rounded-lg">{copied ? "✅" : "📋"}</button>}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 rounded-full"><span className="text-[10px]">💎</span><span className="text-white font-bold text-xs">{account.diamonds}</span></div>
-          <button onClick={() => { setShowChat(!showChat); if (!showChat) { setTab("chat"); setUnread(0); } else { setTab("board"); } }} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-sm relative active:bg-white/20">
-            💬{unread > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[7px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{unread}</span>}
-          </button>
-        </div>
+        <button onClick={() => { setView("menu"); setWaiting(false); }} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white text-sm">↩</button>
+        <span className="bg-yellow-500 text-black px-2.5 py-1 rounded-lg font-black text-[11px]">{room}</span>
+        <div className="flex items-center gap-1 bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-1 rounded-full"><span className="text-[10px]">💎</span><span className="text-white font-bold text-xs">{account.diamonds}</span></div>
       </div>
 
-      {waiting && (
-        <div className="relative z-10 bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-black text-center py-2.5 text-[11px]">
-          ⏳ Share code: <span className="bg-black text-white px-3 py-1 rounded-lg font-mono mx-1 text-base tracking-widest">{room}</span>
-          <button onClick={copy} className="bg-white/50 px-2 py-0.5 rounded text-[10px] font-bold ml-1">{copied ? "✅" : "📋"}</button>
-        </div>
-      )}
-
-      {gameOver && (
-        <div className={`relative z-10 font-black text-center py-3 text-base ${gameOver === "W" ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-black" : "bg-gradient-to-r from-red-500 to-red-700 text-white"}`}>
-          {gameOver === "W" ? "🏆 YOU WIN! 💎+100" : "💀 YOU LOSE 🤣 💎+10"}
-          <button onClick={restart} className="ml-3 bg-black text-white px-4 py-1.5 rounded-xl text-xs font-bold">🔄</button>
-        </div>
-      )}
-
-      {/* Mobile tabs */}
-      <div className="relative z-10 flex sm:hidden">
-        <button onClick={() => { setTab("board"); setShowChat(false); }} className={`flex-1 py-2 text-xs font-bold ${tab === "board" ? "bg-green-900/50 text-green-400 border-b-2 border-green-400" : "text-white/30 bg-black/30"}`}>🎮 Game</button>
-        <button onClick={() => { setTab("chat"); setUnread(0); setShowChat(true); }} className={`flex-1 py-2 text-xs font-bold relative ${tab === "chat" ? "bg-green-900/50 text-green-400 border-b-2 border-green-400" : "text-white/30 bg-black/30"}`}>
-          💬 Chat{unread > 0 && tab !== "chat" && <span className="absolute top-1 right-[30%] bg-red-500 text-white text-[7px] w-4 h-4 rounded-full flex items-center justify-center font-bold animate-bounce">{unread}</span>}
-        </button>
-      </div>
-
-      <div className="relative z-10 flex-1 flex min-h-0">
-        {/* Board */}
-        <div className={`flex-1 flex flex-col min-h-0 ${tab === "chat" ? "hidden sm:flex" : "flex"}`}>
-          {/* Opponent */}
-          <div className="bg-black/40 px-3 py-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full border-2 border-red-500/50 bg-black/30 flex items-center justify-center text-sm">👤</div>
-              <div><div className="text-white font-bold text-xs">{oppName}</div><div className="text-white/30 text-[9px]">{cOpp} tiles</div></div>
-            </div>
-            <div className="flex gap-0.5 overflow-hidden max-w-[50%]">{[...Array(Math.min(cOpp, 14))].map((_, i) => <BackTile key={i} />)}</div>
+      <div className="relative z-10 flex-1 flex flex-col min-h-0">
+        <div className="bg-black/40 px-3 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full border-2 border-red-500/50 bg-black/30 flex items-center justify-center text-sm">👤</div>
+            <div className="text-white font-bold text-xs">{oppName} ({cOpp})</div>
           </div>
+          <div className="flex gap-0.5 overflow-hidden">{[...Array(Math.min(cOpp, 10))].map((_, i) => <BackTile key={i} />)}</div>
+        </div>
 
-          {/* Green table */}
-          <div className="flex-1 relative overflow-auto" style={{
-            background: "radial-gradient(ellipse at center, rgba(40,110,50,0.85) 0%, rgba(25,80,35,0.9) 50%, rgba(15,55,20,0.95) 100%)",
-            boxShadow: "inset 0 0 100px rgba(0,0,0,0.4)",
-          }}>
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-0 left-0 right-0 h-1/3 bg-[#ED2024]/10" />
-              <div className="absolute top-2/3 left-0 right-0 h-1/3 bg-[#21A038]/10" />
-            </div>
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Sun s={200} c="opacity-[0.04]" /></div>
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#ED2024] via-[#FFD700] to-[#21A038]" />
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#21A038] via-[#FFD700] to-[#ED2024]" />
-            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full border-2 border-pink-500/30 bg-black/20 flex items-center justify-center text-xs opacity-30">👤</div>
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full border-2 border-yellow-500/30 bg-black/20 flex items-center justify-center text-xs opacity-30">👤</div>
-            <div className="absolute inset-0 flex items-center justify-center overflow-auto p-6 z-10">
-              {!board.length ? (
-                <div className="text-white/15 text-center"><Sun s={60} c="mx-auto mb-3 opacity-15" /><div className="text-sm font-bold">{waiting ? "Waiting..." : "Play first tile!"}</div></div>
-              ) : (<DominoChain board={board} lastIdx={lastIdx} />)}
-            </div>
+        <div className="flex-1 relative overflow-auto" style={{ background: "radial-gradient(ellipse at center, rgba(40,110,50,0.85) 0%, rgba(15,55,20,0.95) 100%)" }}>
+          <div className="absolute inset-0 flex items-center justify-center overflow-auto p-6 z-10">
+            {!board.length ? <div className="text-white/20 font-bold">START GAME</div> : <DominoChain board={board} lastIdx={lastIdx} />}
           </div>
+        </div>
 
-          {/* Player bar */}
-          <div className="bg-black/50 px-3 py-2 flex items-center justify-between border-t border-yellow-500/20">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full border-2 border-yellow-500/50 bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-sm">{account.avatar}</div>
-              <div><div className="text-white font-bold text-xs">{playerName}</div><div className="text-white/30 text-[9px]">{hand.length} tiles</div></div>
-            </div>
+        <div className="bg-black/50 px-3 py-2 flex items-center justify-between border-t border-yellow-500/20">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full border-2 border-yellow-500/50 bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-sm">{account.avatar}</div>
             <div className={`px-3 py-1 rounded-full text-[10px] font-black ${myTurn ? "bg-green-500 text-black" : "bg-red-500/60 text-white"}`}>{myTurn ? "YOUR TURN" : "WAITING..."}</div>
-            <div className="flex gap-1.5">
-              <button onClick={draw} disabled={!myTurn || !!gameOver || cPile === 0} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold disabled:opacity-20 active:bg-blue-500">📦</button>
-              {!canAny() && myTurn && !gameOver && cPile === 0 && <button onClick={pass} className="bg-orange-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold active:bg-orange-500">⏭️</button>}
-            </div>
+          </div>
+          <div className="flex gap-1.5">
+            <button onClick={draw} disabled={!myTurn || !!gameOver || cPile === 0} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-20">📦</button>
+            {!canAny() && myTurn && !gameOver && cPile === 0 && <button onClick={pass} className="bg-orange-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold font-bold">⏭️</button>}
           </div>
         </div>
 
-        {/* Chat */}
-        <div className={`${tab === "board" && !showChat ? "hidden sm:flex" : "flex"} w-full sm:w-56 md:w-64 bg-black/60 backdrop-blur-md flex-col border-l border-white/5`}>
-          <div className="bg-white/5 px-4 py-2.5 flex items-center justify-between">
-            <span className="text-white/40 font-bold text-xs">💬 Chat</span>
-            <button onClick={() => { setShowChat(false); setTab("board"); setUnread(0); }} className="text-white/30 text-xs sm:hidden">✕</button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
-            {!msgs.length && <div className="text-white/10 text-xs text-center mt-10">No messages yet</div>}
-            {msgs.map((m, i) => (
-              <div key={i} className={`p-2 rounded-xl text-[11px] ${m.sender === "⚙️" ? "bg-blue-500/10 text-blue-300/70 italic" : m.sender.includes("🤖") ? "bg-red-500/10 text-red-300/70" : "bg-white/5 text-white/70"}`}>
-                <div className="flex justify-between mb-0.5"><span className="font-bold text-yellow-400/70 text-[10px]">{m.sender}</span><span className="text-white/10 text-[8px]">{m.time}</span></div>
-                <div className="break-words">{m.text}</div>
+        <div className="bg-[#5C4033] py-4 flex justify-center gap-1.5 overflow-x-auto px-4 border-t-2 border-red-600 shadow-2xl">
+          {hand.map((t, i) => {
+            const ends = getEnds(board);
+            const ok = !board.length || canPlay(t, board, ends) !== null;
+            return (
+              <div key={i} onClick={() => play(t, i)} className={`flex-shrink-0 transition-all ${!myTurn || gameOver ? "opacity-20 pointer-events-none" : ok ? "cursor-pointer active:scale-90" : "opacity-20"}`}>
+                <HandTile v={t} hl={ok && myTurn} sm={hand.length > 7} />
               </div>
-            ))}
-            <div ref={btm} />
-          </div>
-          {showEm && (
-            <div className="grid grid-cols-6 gap-1 p-2 bg-black/40 mx-2 rounded-xl max-h-24 overflow-y-auto border border-white/5">
-              {emos.map(e => <button key={e} onClick={() => setMsg(p => p + e)} className="text-base p-1 rounded active:bg-white/20">{e}</button>)}
-            </div>
-          )}
-          <div className="flex gap-1.5 p-2">
-            <button onClick={() => setShowEm(!showEm)} className={`px-2 py-1.5 rounded-xl text-base ${showEm ? "bg-yellow-500" : "bg-white/10"}`}>😊</button>
-            <input value={msg} onChange={e => setMsg(e.target.value)} onKeyDown={e => { if (e.key === "Enter") sendC(msg); }} className="flex-1 bg-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:ring-1 focus:ring-yellow-500/50 placeholder-white/15 min-w-0" placeholder="Type..." />
-            <button onClick={() => sendC(msg)} className="bg-green-600 px-3 py-1.5 rounded-xl text-xs text-white font-bold active:bg-green-500">➤</button>
-          </div>
+            );
+          })}
         </div>
-      </div>
-
-      {/* ✅ WOODEN RACK - Hand area met houten textuur */}
-      <div className="relative z-10">
-        <div className="h-1 bg-gradient-to-r from-red-600 via-red-500 to-red-600" />
-        <div className="relative overflow-hidden" style={{
-          background: "linear-gradient(180deg, #5C4033 0%, #6B4C3B 15%, #7A5A48 30%, #8B6B56 50%, #7A5A48 70%, #6B4C3B 85%, #5C4033 100%)",
-          boxShadow: "inset 0 2px 10px rgba(0,0,0,0.5), inset 0 -2px 10px rgba(0,0,0,0.3)",
-        }}>
-          {/* Hout textuur */}
-          <div className="absolute inset-0 opacity-20" style={{
-            backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(0,0,0,0.1) 8px, rgba(0,0,0,0.1) 9px), repeating-linear-gradient(90deg, transparent, transparent 30px, rgba(0,0,0,0.05) 30px, rgba(0,0,0,0.05) 31px)`,
-          }} />
-          {/* Steen patroon */}
-          <div className="absolute inset-0 opacity-10" style={{
-            backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(255,255,255,0.1) 20px, rgba(255,255,255,0.1) 21px)`,
-          }} />
-          {/* Metalen randen */}
-          <div className="absolute left-0 top-0 bottom-0 w-2" style={{ background: "linear-gradient(90deg, #3a3a4a, #5a5a6a, #3a3a4a)" }} />
-          <div className="absolute right-0 top-0 bottom-0 w-2" style={{ background: "linear-gradient(90deg, #3a3a4a, #5a5a6a, #3a3a4a)" }} />
-
-          {!canAny() && myTurn && !gameOver && cPile > 0 && (
-            <div className="text-center text-red-400/90 text-[10px] font-bold pt-2 animate-pulse">⚠️ No matching tile - draw!</div>
-          )}
-
-          <div className="flex justify-center gap-1.5 overflow-x-auto py-3 px-4" style={{ scrollbarWidth: "none" }}>
-            {hand.map((t, i) => {
-              const ends = getEnds(board);
-              const ok = !board.length || canPlay(t, board, ends) !== null;
-              return (
-                <div key={`${t[0]}-${t[1]}-${i}`} onClick={() => play(t, i)}
-                  className={`flex-shrink-0 transition-all duration-200 ${!myTurn || gameOver ? "opacity-15 pointer-events-none" : ok ? "active:scale-90 sm:hover:-translate-y-3 sm:hover:shadow-xl cursor-pointer" : "opacity-20"}`}>
-                  <HandTile v={t} hl={ok && myTurn && !gameOver} sm={hand.length > 7} />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <div className="h-1 bg-gradient-to-r from-[#21A038] via-[#2D8A3E] to-[#21A038]" />
       </div>
     </main>
   );
